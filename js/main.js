@@ -350,6 +350,7 @@ function viewNew() {
             </label>`).join("")}
         </div>
         <h2>Rival</h2>
+        <div class="rival-chips" data-rivals hidden></div>
         <input type="text" data-rival autocapitalize="none" maxlength="20"
                placeholder="their username" aria-label="Opponent username" required>
         <p class="hint">They log in with this exact name to play their side.</p>
@@ -359,7 +360,27 @@ function viewNew() {
 
   const form = app.querySelector("[data-form]");
   const createBtn = form.querySelector("[data-create]");
+  const rivalInput = form.querySelector("[data-rival]");
   let creating = false; // guards against double-taps creating duplicate matches
+
+  // Rivals list: everyone you've ever played, freshest match first, derived
+  // from match history (no separate friends storage to keep in sync). Tap a
+  // chip to fill the input; typing a new name still works.
+  const chipsEl = form.querySelector("[data-rivals]");
+  store.listMatchesFor(me).then((matches) => {
+    const rivals = [...new Set(matches.flatMap((m) => m.players).filter((p) => p !== me))];
+    if (!rivals.length || !chipsEl.isConnected) return;
+    chipsEl.hidden = false;
+    chipsEl.innerHTML = rivals
+      .map((r) => `<button type="button" class="rival-chip" data-pick="${esc(r)}">${esc(r)}</button>`)
+      .join("");
+    chipsEl.addEventListener("click", (e) => {
+      const pick = e.target.closest("[data-pick]");
+      if (!pick) return;
+      rivalInput.value = pick.dataset.pick;
+      [...chipsEl.children].forEach((c) => c.classList.toggle("is-picked", c === pick));
+    });
+  }).catch(() => {}); // history is a convenience — the form works without it
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();

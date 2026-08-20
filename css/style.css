@@ -221,6 +221,16 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .game-option-card small { color: var(--muted); }
 .game-option-card em { color: var(--gold); font-style: normal; font-size: 0.75rem; letter-spacing: 0.05em; }
 .new-match form > .btn { width: 100%; margin-top: 22px; }
+.rival-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.rival-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--felt-raise);
+  border: 1px solid var(--line);
+  color: inherit;
+  font-size: 0.9rem;
+}
+.rival-chip.is-picked { border-color: var(--gold); color: var(--gold); }
 
 /* ── Play: intro / interludes ── */
 .play-intro { text-align: center; padding-top: 4dvh; }
