@@ -348,21 +348,28 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .bj-label { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
 .bj-label b { color: var(--tile); font-size: 0.95rem; margin-left: 6px; }
 .bj-label small { margin-left: 8px; }
-.bj-cards { display: flex; flex-wrap: wrap; gap: 6px; min-height: 58px; }
+.bj-cards { display: flex; flex-wrap: wrap; gap: 7px; min-height: 82px; align-items: flex-start; }
 .card {
-  width: 42px; height: 58px;
+  width: 58px; height: 80px;
   display: grid; place-items: center;
+  align-content: center;
+  row-gap: 2px;
   background: var(--tile);
   color: var(--tile-ink);
-  border-radius: 7px;
+  border-radius: 9px;
   font-family: var(--serif);
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.35rem;
   line-height: 1;
-  box-shadow: 0 2px 0 var(--tile-edge), 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 0 var(--tile-edge), 0 5px 10px rgba(0, 0, 0, 0.3);
   animation: chip-in 0.25s cubic-bezier(0.2, 1.4, 0.4, 1);
 }
-.card i { font-style: normal; font-size: 0.85rem; }
+.card i { font-style: normal; font-size: 1.05rem; }
+/* Shrink a hand's cards only once its own row gets long (multiple hits) */
+.bj-cards.is-crowded .card { width: 44px; height: 61px; font-size: 1rem; border-radius: 7px; }
+.bj-cards.is-crowded .card i { font-size: 0.8rem; }
+.bj-cards.is-tight .card { width: 35px; height: 48px; font-size: 0.85rem; border-radius: 6px; }
+.bj-cards.is-tight .card i { font-size: 0.7rem; }
 .card.is-red { color: #b3372c; }
 .card.is-back { background: var(--felt-raise); border: 1px solid var(--line); box-shadow: none; }
 .bj-banner {
@@ -376,6 +383,9 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .bj-banner.is-loss { color: var(--coral); }
 .bj-actions { display: flex; gap: 8px; margin-top: 14px; }
 .bj-actions .btn { flex: 1; padding: 12px 4px; }
+/* Disabled plays (Double after a hit, Split on a non-pair) must LOOK dead —
+   the base .btn class has no :disabled treatment of its own */
+.bj-actions .btn:disabled { opacity: 0.35; cursor: default; }
 .bj-next { display: block; width: 100%; margin-top: 12px; }
 .bj-ledger { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .bj-ledger th, .bj-ledger td { padding: 4px 6px; text-align: center; }

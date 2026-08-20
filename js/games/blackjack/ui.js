@@ -243,7 +243,14 @@ export function mountRound(container, opts) {
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
+  // Cards stay big until a single hand's row grows past what fits — then
+  // only that row's cards shrink.
+  function crowdClass(count) {
+    return count >= 7 ? " is-tight" : count >= 5 ? " is-crowded" : "";
+  }
+
   function render() {
+    dealerEl.className = "bj-cards" + crowdClass(dealerCards.length);
     dealerEl.innerHTML = (holeShown ? cardFace(dealerCards[0]) : cardBack()) +
       dealerCards.slice(1).map(cardFace).join("");
     dealerTotalEl.textContent = holeShown ? handTotal(dealerCards).total :
@@ -256,7 +263,7 @@ export function mountRound(container, opts) {
       return `
         <div class="bj-row${active ? " is-active" : ""}">
           <span class="bj-label">You <b>${t.total}${t.soft ? "s" : ""}</b><small>${h.bet} bet${state}</small></span>
-          <div class="bj-cards">${h.cards.map(cardFace).join("")}</div>
+          <div class="bj-cards${crowdClass(h.cards.length)}">${h.cards.map(cardFace).join("")}</div>
         </div>`;
     }).join("");
 
