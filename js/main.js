@@ -180,7 +180,7 @@ function renderHome(me, matches) {
     const game = getGame(m.gameId);
     return `
       <a class="match-card" href="#/match/${m.id}">
-        <span class="match-game">${game ? esc(game.name) : m.gameId}</span>
+        <span class="match-game">${esc(game ? game.name : m.gameId)}</span>
         <span class="match-vs">vs ${esc(rival)}</span>
         <span class="match-date">${fmtDate(m.createdAt)}</span>
         ${badge(m, rival)}
@@ -188,8 +188,10 @@ function renderHome(me, matches) {
   };
 
   const finalBadge = (m, rival) => {
-    const mine = m.results[m.players.find((p) => p === session.user)]?.total ?? 0;
-    const theirs = m.results[rival]?.total ?? 0;
+    // Totals come from the shared DB (written by the other player's client):
+    // coerce to numbers before interpolating into HTML.
+    const mine = Number(m.results[m.players.find((p) => p === session.user)]?.total) || 0;
+    const theirs = Number(m.results[rival]?.total) || 0;
     const cls = m.winner === "tie" ? "is-tie" : m.winner === session.user ? "is-win" : "is-loss";
     const label = m.winner === "tie" ? "Tie" : m.winner === session.user ? "Won" : "Lost";
     return `<span class="badge ${cls}">${label} ${mine}–${theirs}</span>`;
@@ -342,7 +344,7 @@ function postGame(match, game, me, rival) {
       <main class="page play-intro">
         <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
         <p class="interlude-kicker">You scored</p>
-        <p class="interlude-score">${match.results[me].total}<i>pts</i></p>
+        <p class="interlude-score">${Number(match.results[me].total) || 0}<i>pts</i></p>
         <p class="hint">Now it's ${esc(rival)}'s move. Results stay sealed until they play —
         go tell them the tiles are waiting.</p>
       </main>`);
@@ -356,8 +358,8 @@ function postGame(match, game, me, rival) {
 }
 
 async function renderResults(match, game, me, rival) {
-  const mine = match.results[me]?.total ?? 0;
-  const theirs = match.results[rival]?.total ?? 0;
+  const mine = Number(match.results[me]?.total) || 0;
+  const theirs = Number(match.results[rival]?.total) || 0;
   const verdict = match.winner === "tie" ? "Dead tie." : match.winner === me ? "You take it." : `${esc(rival)} takes it.`;
   const pct = mine + theirs ? (mine / (mine + theirs)) * 100 : 50;
 

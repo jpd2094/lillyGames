@@ -43,8 +43,8 @@ export default {
 
     for (let r = 1; r <= match.rounds; r++) {
       const grid = gridForRound(match.seed, r);
-      const myWords = new Map(mine?.rounds[r - 1]?.words || []);
-      const theirWords = new Map(theirs?.rounds[r - 1]?.words || []);
+      const myWords = new Map(mine?.rounds?.[r - 1]?.words || []);
+      const theirWords = new Map(theirs?.rounds?.[r - 1]?.words || []);
       const everyone = new Set([...myWords.keys(), ...theirWords.keys()]);
       const missed = solveGrid(grid, assets.dictionary)
         .filter((w) => !everyone.has(w))
@@ -55,17 +55,17 @@ export default {
           <h3>Round ${r}</h3>
           <div class="result-cols">
             <div class="result-col is-me">
-              <h4>${esc(me)} · ${mine?.rounds[r - 1]?.score ?? 0}</h4>
+              <h4>${esc(me)} · ${Number(mine?.rounds?.[r - 1]?.score) || 0}</h4>
               ${wordList(myWords, theirWords)}
             </div>
             <div class="result-col is-rival">
-              <h4>${esc(rival)} · ${theirs?.rounds[r - 1]?.score ?? 0}</h4>
+              <h4>${esc(rival)} · ${Number(theirs?.rounds?.[r - 1]?.score) || 0}</h4>
               ${wordList(theirWords, myWords)}
             </div>
           </div>
           ${missed.length ? `
             <p class="result-missed">
-              <span>Nobody found</span> ${missed.map((w) => `<em>${w} (${wordScore(w)})</em>`).join(" ")}
+              <span>Nobody found</span> ${missed.map((w) => `<em>${esc(w)} (${wordScore(w)})</em>`).join(" ")}
             </p>` : ""}
         </section>`);
     }
