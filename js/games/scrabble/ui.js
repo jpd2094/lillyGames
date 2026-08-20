@@ -121,7 +121,12 @@ export function mountRound(container, opts) {
   }
 
   function place(pos, ri = selected) {
-    if (ri < 0 || state.board[pos] || pending.some((t) => t.pos === pos)) return;
+    if (ri < 0) return;
+    if (state.board[pos] || pending.some((t) => t.pos === pos)) {
+      note("That square is taken.", true);
+      render(); // clears any drag styling from a rejected drop
+      return;
+    }
     const ch = rackView[ri];
     if (ch === undefined) return;
     if (ch === "?") {
@@ -346,10 +351,13 @@ export function mountRound(container, opts) {
         const target = dropTarget(e);
         if (d.kind === "rack") {
           if (target !== null) place(target, d.ri);
-          else render(); // clears is-dragging
+          render(); // rejected or not, drag styling must clear
         } else {
           const pend = pending.find((t) => t.pos === d.pos);
-          if (pend && target !== null && !state.board[target] && !pending.some((t) => t.pos === target)) {
+          if (pend && target !== null && target !== d.pos &&
+              (state.board[target] || pending.some((t) => t.pos === target))) {
+            note("That square is taken.", true); // stays where it was
+          } else if (pend && target !== null && !state.board[target] && !pending.some((t) => t.pos === target)) {
             pend.pos = target; // slide the staged tile to a new square
           } else if (pend && target === null) {
             pending = pending.filter((t) => t !== pend); // dropped off-board: back to the rack
@@ -428,6 +436,18 @@ export function mountRound(container, opts) {
 
   // ── Render ─────────────────────────────────────────────────────────────
   function render() {
+    // Invariant: one tile per square, whatever path tried to break it —
+    // a stacked pending tile would render hidden, so bounce it to the rack.
+    const taken = new Set(state.board.map((c, i) => (c ? i : -1)).filter((i) => i >= 0));
+    pending = pending.filter((t) => {
+      if (taken.has(t.pos)) {
+        rackView.push(t.blank ? "?" : t.letter);
+        return false;
+      }
+      taken.add(t.pos);
+      return true;
+    });
+
     el("[data-my-score]").textContent = state.over ? state.finalScores[myIdx] : state.scores[myIdx];
     el("[data-rival-score]").textContent = state.over ? state.finalScores[1 - myIdx] : state.scores[1 - myIdx];
     el("[data-bag]").textContent = `${state.bagRemaining} in bag`;
@@ -481,12 +501,12 @@ export function mountRound(container, opts) {
     if (!cell || swapMode || !myTurn() || !pickerEl.hidden || suppressClick) return;
     const p = Number(cell.dataset.pos);
     const pendIdx = pending.findIndex((t) => t.pos === p);
-    if (pendIdx !== -1) { // take a pending tile back
+    if (pendIdx !== -1 && selected < 0) { // take a pending tile back
       const [t] = pending.splice(pendIdx, 1);
       rackView.push(t.blank ? "?" : t.letter);
       render();
     } else {
-      place(p);
+      place(p); // occupied squares reject with a "square taken" note
     }
   });
 
