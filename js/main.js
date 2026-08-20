@@ -433,7 +433,7 @@ function playFlow(match, game, me, rival) {
         <div class="versus"><b class="is-me">${esc(me)}</b><span>vs</span><b class="is-rival">${esc(rival)}</b></div>
         <ul class="rules">
           <li>${match.rounds} rounds, ${game.roundSeconds} seconds each.</li>
-          <li>Same grids for both of you — same seed, same tiles.</li>
+          <li>Same puzzles for both of you — same seed, same letters.</li>
           <li>Rounds move in lockstep: you both play round 1 before either of you starts round 2.</li>
           <li>3–4 letters = 1 pt · 5 = 2 · 6 = 3 · 7 = 5 · 8+ = 11.</li>
         </ul>

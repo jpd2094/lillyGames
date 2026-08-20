@@ -3,8 +3,9 @@
 // js/games/wordgrid/index.js for the contract), then list it here.
 
 import wordgrid from "./wordgrid/index.js";
+import anagrams from "./anagrams/index.js";
 
-export const GAMES = [wordgrid];
+export const GAMES = [wordgrid, anagrams];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;

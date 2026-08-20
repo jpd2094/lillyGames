@@ -298,6 +298,20 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .board.is-shake { animation: shake 0.3s ease; }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 
+/* ── Anagrams rack ── */
+.rack {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.rack .tile { font-size: clamp(1.4rem, 8vw, 2rem); }
+.rack.is-done { opacity: 0.45; pointer-events: none; }
+.rack.is-shake { animation: shake 0.3s ease; }
+.rack-actions { display: flex; gap: 8px; margin-top: 14px; }
+.rack-actions .btn { flex: 1; }
+
 .tile {
   aspect-ratio: 1;
   display: grid; place-items: center;

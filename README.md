@@ -1,9 +1,10 @@
 # Lilly Games
 
 A tiny head-to-head gaming platform for two friends: pick a username, challenge
-your rival, and keep a lifetime rivalry score. First game: **Word Grid** — trace
-words through a 4×4 letter grid, 3 rounds × 60 seconds per match, both players
-get the exact same grids. Rounds move in lockstep: each round is saved the
+your rival, and keep a lifetime rivalry score. Two games so far: **Word Grid** —
+trace words through a 4×4 letter grid — and **Anagrams** — build words from a
+rack of 8 shuffled letters. Both are 3 rounds × 60 seconds per match, and both
+players get the exact same puzzles. Rounds move in lockstep: each round is saved the
 moment you finish it, and round N+1 unlocks only once both players have played
 round N (whoever finishes a round second rolls straight into the next one).
 
@@ -171,6 +172,11 @@ js/games/wordgrid/    first game
   dict.js             dictionary loader
   solver.js           finds every word on a grid (for "nobody found" on results)
   ui.js               round UI: tracing, timer, chips
+  index.js            the game-plugin definition
+js/games/anagrams/    second game
+  engine.js           seeded rack from a baked-in word pool, letter accounting (pure)
+  solver.js           finds every word buildable from a rack
+  ui.js               round UI: tap/type letters, timer, chips
   index.js            the game-plugin definition
 ```
 
