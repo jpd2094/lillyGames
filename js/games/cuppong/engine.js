@@ -22,10 +22,26 @@ export const CUPS = (() => {
   return cups;
 })();
 
-// Swipe (normalized by viewport height: dxN right+, dyN upward+) → landing.
-// Tuned so a ~55%-height flick reaches the middle of the rack.
-export function aimFromSwipe(dxN, dyN) {
-  return { x: dxN * 2.4, z: dyN * 1.35 };
+// Flick → landing. GamePigeon-style: power comes from BOTH how far and how
+// fast you flick — a short sharp flick throws as far as a long slow drag.
+// dxN/dyN are the flick vector normalized by viewport height (dyN up+);
+// v is the release speed in px/ms measured over the flick's last moments.
+export function aimFromFlick(dxN, dyN, v) {
+  const speed = Math.min(1, Math.max(0, v) / 1.8); // saturates at a real flick
+  const gain = 1.35 * (0.45 + 0.75 * speed);       // 0.61x slow … 1.62x fast
+  const z = dyN * gain;
+  // lateral aim keeps the flick's direction: amplified by the same gain
+  const x = dxN * gain * 1.75;
+  return { x, z };
+}
+
+// A rim hit deflects the ball radially off the cup's edge for one short,
+// deterministic hop — it can drop into a neighbouring cup or dribble away.
+export function bounceFrom(landing, cup) {
+  const dx = landing.x - cup.x, dz = landing.z - cup.z;
+  const d = Math.hypot(dx, dz) || 1;
+  const hop = RIM_R * 1.7;
+  return { x: landing.x + (dx / d) * hop, z: landing.z + (dz / d) * hop };
 }
 
 // Which cup (index into `alive`-masked CUPS) a landing hits, if any.

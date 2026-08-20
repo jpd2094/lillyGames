@@ -343,6 +343,13 @@ function renderHome(me, matches) {
   const myMove = matches.filter((m) => !isComplete(m) && isMyMove(m));
   const waiting = matches.filter((m) => !isComplete(m) && !isMyMove(m));
 
+  // Installed-web-app badge: count of matches waiting on you. Updates when
+  // the app is open or comes back to the foreground (no push server here).
+  try {
+    if (myMove.length) navigator.setAppBadge?.(myMove.length);
+    else navigator.clearAppBadge?.();
+  } catch { /* not installed / unsupported */ }
+
   // Rivalry ledger: lifetime record per opponent
   const rivals = {};
   for (const m of done) {
