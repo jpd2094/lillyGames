@@ -168,8 +168,12 @@ document.addEventListener("visibilitychange", () => {
   const ARM_AT = 120;
   let startY = null, pulled = 0;
   window.addEventListener("touchstart", (e) => {
-    const onGame = e.target.closest?.(".board, .rack, .sc-board, .sc-rack, .bj-table");
-    startY = window.scrollY <= 0 && !onGame ? e.touches[0].clientY : null;
+    // Never arm on a round page: games own every gesture there (a golf
+    // pull-back IS a downward drag). The element list stays as a fallback
+    // for game surfaces rendered outside a round host.
+    const inRound = Boolean(document.querySelector(".page-round"));
+    const onGame = e.target.closest?.(".board, .rack, .sc-board, .sc-rack, .bj-table, .mg-course, .cp-table");
+    startY = window.scrollY <= 0 && !inRound && !onGame ? e.touches[0].clientY : null;
     pulled = 0;
   }, { passive: true });
   window.addEventListener("touchmove", (e) => {
