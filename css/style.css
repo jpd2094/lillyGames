@@ -137,7 +137,18 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
   color: var(--gold);
   font-weight: 600;
 }
-.btn-new { display: block; margin-top: 30px; width: 100%; font-size: 1.05rem; }
+.btn-new {
+  display: block;
+  margin-top: 30px;
+  width: 100%;
+  font-size: 1.05rem;
+  /* always within thumb's reach: pins to the viewport bottom while the
+     match list scrolls (safe-area aware for the iPhone home indicator) */
+  position: sticky;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
 .empty-state p { color: var(--muted); line-height: 1.6; padding: 18px 0; }
 
 /* Rivalry tug-of-war: gold (you) vs coral (them) */
@@ -592,8 +603,23 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .su-cell.is-selected { background: rgba(245, 197, 66, 0.28); }
 .su-cell.is-same { background: rgba(245, 197, 66, 0.12); }
 .su-cell.is-bad { color: var(--coral); background: rgba(255, 110, 94, 0.18); }
-.su-pad { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 12px; }
+.su-pad { display: grid; grid-template-columns: repeat(11, 1fr); gap: 3px; margin-top: 12px; }
 .su-pad .su-key { padding: 12px 0; font-size: 1rem; }
+.su-key-pen.is-active { background: var(--gold); color: var(--tile-ink); border-color: var(--gold); }
+.su-notes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  width: 100%; height: 100%;
+  padding: 1px;
+}
+.su-notes i {
+  font-style: normal;
+  font-size: 0.42rem;
+  line-height: 1;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  display: grid; place-items: center;
+}
 .su-time { font-family: var(--display); font-size: 1.8rem; }
 .su-grid-mini { max-width: 300px; margin: 14px auto 0; }
 .su-grid-mini .su-cell { font-size: 0.7rem; }

@@ -19,7 +19,8 @@ const colOf = (i) => i % 9;
 const boxOf = (i) => Math.floor(rowOf(i) / 3) * 3 + Math.floor(colOf(i) / 3);
 
 // Peer cells (same row/col/box) for each cell, precomputed once.
-const PEERS = (() => {
+// Exported for the UI's pencil-mark pruning.
+export const PEERS = (() => {
   const peers = [];
   for (let i = 0; i < 81; i++) {
     const set = new Set();
