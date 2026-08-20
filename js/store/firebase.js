@@ -10,7 +10,13 @@ export async function createFirebaseStore(firebaseConfig, authProvider = "") {
   );
 
   const app = initializeApp(firebaseConfig);
-  const db = fs.getFirestore(app);
+  // Long-polling transport, not the default streaming channel: on Safari/
+  // WebKit the streaming backchannel can die silently mid-session, after
+  // which every read hangs and write acks never arrive (stuck "Dealing…"/
+  // "Banking…" screens). Long-polling is the transport Firestore falls back
+  // to behind restrictive proxies, works everywhere, and costs this
+  // two-player app nothing in latency that anyone would notice.
+  const db = fs.initializeFirestore(app, { experimentalForceLongPolling: true });
 
   // Auth is optional: only loaded when config.js names a provider. Identity
   // model: users/{name} carries a uid once claimed; byUid/{uid} -> {name} is
