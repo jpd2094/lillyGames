@@ -32,6 +32,18 @@ export function createLocalStore() {
 
   return {
     kind: "local",
+    authProvider: "",
+
+    // Demo mode has no auth; these exist so callers don't need to care.
+    async authUser() { return null; },
+    async signIn() { throw new Error("No sign-in in demo mode"); },
+    async signOutUser() {},
+    async myUsername() { return null; },
+    async claimUsername(name) { return (await this.ensureUser(name)).name; },
+
+    async getUser(name) {
+      return load().users[name] || null;
+    },
 
     async ensureUser(name) {
       const db = load();

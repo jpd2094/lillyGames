@@ -47,9 +47,76 @@ Firebase Firestore's free tier is far more than two players will ever use.
    ```
 
 **Honesty note:** with username-only "login" there is no real security — anyone
-with the URL could read/write your matches. That's the accepted trade-off for
-now. When you outgrow it, the upgrade path is Firebase Anonymous Auth +
-per-user rules, with no changes to the game code.
+with the URL could read/write your matches. That's the accepted trade-off until
+you enable real sign-in (below).
+
+## Real sign-in (Apple or Google)
+
+The app ships with `AUTH_PROVIDER: ""` in `js/config.js` (username-only login).
+Setting it to `"apple"` or `"google"` turns on real authentication: players
+sign in with their Apple/Google account, claim their username once (existing
+usernames carry their history over), and the Firestore rules below make
+impersonation and score-tampering impossible.
+
+**Order matters.** Do the console setup first, then publish the rules and flip
+the flag together. Flipping early locks everyone out.
+
+### Apple prerequisites (Apple's requirements, not ours)
+
+- An **Apple Developer Program membership** ($99/year, developer.apple.com).
+- In the Apple Developer portal ([developer.apple.com/account](https://developer.apple.com/account) → Certificates, Identifiers & Profiles):
+  1. **Identifiers → + → App IDs → App**: any description, bundle ID like
+     `com.lillygames.app`, tick **Sign in with Apple**, register.
+  2. **Identifiers → + → Services IDs**: identifier like `com.lillygames.web`,
+     register, then open it → enable **Sign in with Apple** → Configure:
+     primary App ID = the one from step 1; domain `lilly-games.firebaseapp.com`;
+     return URL `https://lilly-games.firebaseapp.com/__/auth/handler`.
+  3. **Keys → +**: name it, tick **Sign in with Apple**, configure → pick the
+     App ID, register, **download the `.p8` file** (one chance!), note the
+     **Key ID** and your **Team ID** (top-right of the portal).
+- In the Firebase console → **Authentication → Sign-in method → Apple →
+  Enable**: fill in the Services ID, Team ID, Key ID, and paste the `.p8`
+  contents. Save.
+- Firebase console → **Authentication → Settings → Authorized domains**: add
+  `jpd2094.github.io`.
+
+(Google instead: Authentication → Sign-in method → Google → Enable. That's the
+whole setup — no fee.)
+
+### Locked-down Firestore rules (publish when flipping the flag)
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function authed() { return request.auth != null; }
+    function myName() {
+      return get(/databases/$(database)/documents/byUid/$(request.auth.uid)).data.name;
+    }
+
+    match /users/{name} {
+      allow read: if authed();
+      // create your own doc; claim an unclaimed legacy name; never steal one
+      allow create: if authed() && request.resource.data.uid == request.auth.uid;
+      allow update: if authed()
+        && (resource.data.uid == null || resource.data.uid == request.auth.uid)
+        && request.resource.data.uid == request.auth.uid;
+    }
+    match /byUid/{uid} {
+      allow read: if authed();
+      allow write: if authed() && uid == request.auth.uid;
+    }
+    match /matches/{id} {
+      allow read: if authed();
+      allow create: if authed() && myName() in request.resource.data.players;
+      // players may only ever touch their own results entry
+      allow update: if authed() && myName() in resource.data.players
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['results'])
+        && request.resource.data.results.diff(resource.data.results).affectedKeys().hasOnly([myName()]);
+    }
+  }
+}
+```
 
 ## Deploying to GitHub Pages
 

@@ -11,7 +11,7 @@
 //   subscribeMatch(id, cb)                    -> unsubscribe fn  (sync)
 //   subscribeMatchesFor(name, cb)             -> unsubscribe fn  (sync)
 
-import { USE_FIREBASE, firebaseConfig } from "../config.js";
+import { USE_FIREBASE, firebaseConfig, AUTH_PROVIDER } from "../config.js";
 import { createLocalStore } from "./local.js";
 
 let storePromise = null;
@@ -19,7 +19,7 @@ let storePromise = null;
 export function initStore() {
   if (!storePromise) {
     storePromise = USE_FIREBASE
-      ? import("./firebase.js").then((m) => m.createFirebaseStore(firebaseConfig))
+      ? import("./firebase.js").then((m) => m.createFirebaseStore(firebaseConfig, AUTH_PROVIDER))
       : Promise.resolve(createLocalStore());
   }
   return storePromise;

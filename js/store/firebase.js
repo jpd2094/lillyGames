@@ -1,7 +1,7 @@
 // Firestore-backed store adapter. Loaded dynamically only when configured,
 // so demo mode never touches the network.
 
-export async function createFirebaseStore(firebaseConfig) {
+export async function createFirebaseStore(firebaseConfig, authProvider = "") {
   const { initializeApp } = await import(
     "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"
   );
@@ -11,6 +11,18 @@ export async function createFirebaseStore(firebaseConfig) {
 
   const app = initializeApp(firebaseConfig);
   const db = fs.getFirestore(app);
+
+  // Auth is optional: only loaded when config.js names a provider. Identity
+  // model: users/{name} carries a uid once claimed; byUid/{uid} -> {name} is
+  // the reverse lookup (and what the security rules use to know who you are).
+  let auth = null, authNS = null;
+  if (authProvider) {
+    authNS = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js");
+    auth = authNS.getAuth(app);
+    // Completes a sign-in that came back via full-page redirect (popup-
+    // blocked fallback). Errors here resurface on the next explicit attempt.
+    try { await authNS.getRedirectResult(auth); } catch { /* ignored */ }
+  }
 
   const userRef = (name) => fs.doc(db, "users", name);
   const matchRef = (id) => fs.doc(db, "matches", id);
@@ -23,6 +35,67 @@ export async function createFirebaseStore(firebaseConfig) {
 
   return {
     kind: "firebase",
+    authProvider,
+
+    // ── Auth (no-ops when authProvider is "") ───────────────────────────
+    async authUser() {
+      if (!auth) return null;
+      await auth.authStateReady();
+      return auth.currentUser;
+    },
+
+    async signIn() {
+      const provider = new authNS.OAuthProvider(
+        authProvider === "google" ? "google.com" : "apple.com"
+      );
+      if (authProvider === "apple") {
+        provider.addScope("email");
+        provider.addScope("name");
+      }
+      try {
+        await authNS.signInWithPopup(auth, provider);
+      } catch (err) {
+        // Popup blockers: fall back to a full-page redirect round trip.
+        if (err.code === "auth/popup-blocked") {
+          return authNS.signInWithRedirect(auth, provider);
+        }
+        throw err;
+      }
+    },
+
+    async signOutUser() {
+      if (auth) await authNS.signOut(auth);
+    },
+
+    async myUsername() {
+      const u = await this.authUser();
+      if (!u) return null;
+      const snap = await fs.getDoc(fs.doc(db, "byUid", u.uid));
+      return snap.exists() ? snap.data().name : null;
+    },
+
+    // Claim a username for the signed-in account. Existing pre-auth
+    // usernames (no uid on the doc) can be claimed by their owner exactly
+    // once; a name already tied to another account is refused.
+    async claimUsername(name) {
+      const u = await this.authUser();
+      if (!u) throw new Error("Not signed in");
+      await fs.runTransaction(db, async (tx) => {
+        const ref = userRef(name);
+        const snap = await tx.get(ref);
+        const data = snap.exists() ? snap.data() : null;
+        if (data?.uid && data.uid !== u.uid) throw new Error(`"${name}" is taken`);
+        tx.set(ref, { name, uid: u.uid, createdAt: data?.createdAt ?? Date.now() });
+        tx.set(fs.doc(db, "byUid", u.uid), { name });
+      });
+      return name;
+    },
+
+    // ── Users / matches ──────────────────────────────────────────────────
+    async getUser(name) {
+      const snap = await fs.getDoc(userRef(name));
+      return snap.exists() ? snap.data() : null;
+    },
 
     async ensureUser(name) {
       const snap = await fs.getDoc(userRef(name));

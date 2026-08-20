@@ -9,7 +9,12 @@
 
 import { initStore } from "./store/index.js";
 import { GAMES, getGame } from "./games/registry.js";
-import { USE_FIREBASE } from "./config.js";
+import { USE_FIREBASE, AUTH_PROVIDER } from "./config.js";
+
+// Real sign-in (Apple/Google via Firebase) is active only when both a
+// backend and a provider are configured; otherwise login is username-only.
+const AUTH_ON = USE_FIREBASE && Boolean(AUTH_PROVIDER);
+const AUTH_LABEL = AUTH_PROVIDER === "google" ? "Google" : "Apple";
 
 const app = document.getElementById("app");
 let store = null;
@@ -90,6 +95,7 @@ function canPlay(match, me) {
 const routes = [
   { re: /^#?\/?$/, view: viewHome },
   { re: /^#\/login$/, view: viewLogin },
+  { re: /^#\/claim$/, view: viewClaim },
   { re: /^#\/new$/, view: viewNew },
   { re: /^#\/match\/([a-zA-Z0-9]+)$/, view: viewMatch },
 ];
@@ -99,7 +105,17 @@ async function route() {
   if (!store) store = await initStore();
 
   const hash = location.hash || "#/";
-  if (!session.user && hash !== "#/login") { location.hash = "#/login"; return; }
+  if (AUTH_ON) {
+    // Gate 1: signed in at all? Gate 2: has this account claimed a username?
+    const authed = await store.authUser();
+    if (!authed) {
+      if (hash !== "#/login") { location.hash = "#/login"; return; }
+    } else if (!session.user) {
+      const name = await store.myUsername();
+      if (name) session.user = name;
+      else if (hash !== "#/claim") { location.hash = "#/claim"; return; }
+    }
+  } else if (!session.user && hash !== "#/login") { location.hash = "#/login"; return; }
 
   for (const r of routes) {
     const m = hash.match(r.re);
@@ -126,13 +142,44 @@ setTimeout(() => GAMES.forEach((g) => g.prepare().catch(() => {})), 500);
 // ── Views ────────────────────────────────────────────────────────────────
 
 function viewLogin() {
-  setView(`
-    <main class="login">
+  const loginHead = `
       <div class="login-tiles" aria-hidden="true">
         ${"LILLY".split("").map((ch, i) => `<span class="minitile" style="--d:${i * 70}ms">${ch}</span>`).join("")}
       </div>
       <h1 class="wordmark">Lilly&nbsp;Games</h1>
-      <p class="login-sub">Two players. One grid. Old grudges.</p>
+      <p class="login-sub">Two players. One grid. Old grudges.</p>`;
+
+  if (AUTH_ON) {
+    setView(`
+      <main class="login">
+        ${loginHead}
+        <button class="btn btn-primary" data-signin>Continue with ${AUTH_LABEL}</button>
+        <p class="hint" data-auth-error></p>
+      </main>`);
+    const btn = app.querySelector("[data-signin]");
+    const errEl = app.querySelector("[data-auth-error]");
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      errEl.textContent = "";
+      try {
+        await store.signIn();
+        session.user = null; // route() resolves the username for this account
+        location.hash = "#/";
+        route();
+      } catch (err) {
+        btn.disabled = false;
+        const notSetUp = err.code === "auth/operation-not-allowed" || err.code === "auth/configuration-not-found";
+        errEl.textContent = notSetUp
+          ? `${AUTH_LABEL} sign-in isn't switched on in Firebase yet — finish the console setup in the README.`
+          : `Sign-in didn't complete (${err.code || err.message}). Try again.`;
+      }
+    });
+    return;
+  }
+
+  setView(`
+    <main class="login">
+      ${loginHead}
       <form class="login-form" data-form>
         <input type="text" data-name inputmode="text" autocapitalize="none" autocomplete="username"
                maxlength="20" placeholder="pick a username" aria-label="Username" required>
@@ -152,6 +199,47 @@ function viewLogin() {
   });
 }
 
+// First sign-in on a new account: pick (or reclaim) a username. Shown only
+// when AUTH_ON and the signed-in account has no username yet.
+function viewClaim() {
+  const remembered = localStorage.getItem("lilly.user") || "";
+  setView(`
+    <main class="login">
+      <h1 class="wordmark">Almost in</h1>
+      <p class="login-sub">Pick your player name — your rival challenges you by this name,
+        and your match history sticks to it.</p>
+      <form class="login-form" data-form>
+        <input type="text" data-name inputmode="text" autocapitalize="none" autocomplete="username"
+               maxlength="20" placeholder="pick a username" aria-label="Username"
+               value="${esc(remembered)}" required>
+        <button type="submit" class="btn btn-primary">Claim</button>
+      </form>
+      <p class="hint" data-claim-error></p>
+      <p class="hint"><a href="#/login" data-signout>Sign out</a></p>
+    </main>`);
+
+  const form = app.querySelector("[data-form]");
+  const errEl = app.querySelector("[data-claim-error]");
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const name = normName(form.querySelector("[data-name]").value);
+    if (!name) return;
+    try {
+      await store.claimUsername(name);
+      session.user = name;
+      location.hash = "#/";
+    } catch (err) {
+      errEl.textContent = /taken/.test(err.message)
+        ? `"${name}" already belongs to someone else — pick another.`
+        : `Couldn't claim that name (${err.message}). Try again.`;
+    }
+  });
+  app.querySelector("[data-signout]").addEventListener("click", async () => {
+    await store.signOutUser();
+    session.user = null;
+  });
+}
+
 async function viewHome() {
   const me = session.user;
   setView(`
@@ -165,8 +253,11 @@ async function viewHome() {
       <a class="btn btn-primary btn-new" href="#/new">New match</a>
     </main>`);
 
-  app.querySelector("[data-logout]").addEventListener("click", () => {
-    if (confirm("Switch player?")) { session.user = null; location.hash = "#/login"; }
+  app.querySelector("[data-logout]").addEventListener("click", async () => {
+    if (!confirm(AUTH_ON ? "Sign out?" : "Switch player?")) return;
+    if (AUTH_ON) await store.signOutUser();
+    session.user = null;
+    location.hash = "#/login";
   });
 
   const content = app.querySelector("[data-content]");
@@ -282,7 +373,16 @@ function viewNew() {
     try {
       const gameId = form.querySelector("[name=game]:checked").value;
       const game = getGame(gameId);
-      await store.ensureUser(rival);
+      if (AUTH_ON) {
+        // Locked-down rules only let people create their own user doc, so a
+        // rival must have signed in and claimed their name before you can
+        // challenge them.
+        if (!(await store.getUser(rival))) {
+          throw new Error(`no player named "${rival}" yet — they need to sign in and claim that name first`);
+        }
+      } else {
+        await store.ensureUser(rival);
+      }
       const match = await store.createMatch({
         gameId, players: [me, rival], createdBy: me, seed: randomSeed(), rounds: game.rounds, v: SCHEMA,
       });
