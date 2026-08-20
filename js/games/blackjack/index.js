@@ -21,6 +21,7 @@ export default {
     <path d="M16.6 10.9c-.9-1.6-3.3-.8-2.7 1.1.4 1.2 2.5 2.7 2.5 2.7s2.4-1.2 2.9-2.4c.7-1.8-1.6-2.9-2.7-1.4z" fill="currentColor" stroke="none"/>
   </svg>`,
   pitch: `1 duel · ${HANDS_PER_DUEL} hands`,
+  instantStart: true, // no clock — straight to the table, no splash
   rules: [
     `${HANDS_PER_DUEL} hands against the dealer, ${BANKROLL} chips to start, 10 a hand.`,
     "You both get the exact same cards — the dealer's too. Only your hit, stand, double and split calls differ.",

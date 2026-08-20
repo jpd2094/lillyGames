@@ -309,6 +309,18 @@ a.rivalry { display: block; color: inherit; text-decoration: none; }
 .interlude-score { font-family: var(--display); font-size: 4rem; line-height: 1; color: var(--gold); }
 .interlude-score i { font-style: normal; font-size: 1.1rem; color: var(--muted); margin-left: 6px; }
 .play-intro .btn { margin-top: 26px; min-width: 220px; }
+.scoreline-sm { margin-top: 18px; }
+.scoreline-sm .scoreline-side b { font-size: 1.9rem; }
+.rules-fold { margin-top: 26px; }
+.rules-fold summary {
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  list-style-position: inside;
+}
+.rules-fold[open] summary { margin-bottom: 6px; }
+/* belt and braces: some engines paint closed-details content regardless */
+.rules-fold:not([open]) > .rules { display: none; }
 .quiet-link { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── Round ── */

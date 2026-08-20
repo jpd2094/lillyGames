@@ -172,6 +172,10 @@ default-exports:
                             //   on the New match screen; stored as match.variant
                             //   and passed to mountRound
   lowerWins,                // optional: winner has the LOWEST total (races)
+  instantStart,             // optional: no pre-round splash — opening the
+                            //   match goes straight into the round (untimed
+                            //   games only; timed games keep the splash so
+                            //   the clock never starts by surprise)
   formatScore(total),       // optional: how totals render (e.g. times "3:12")
   async prepare(),          // load assets once (dictionary, sprites…) → assets
   mountRound(el, { seed, round, totalRounds, assets, onDone,

@@ -17,6 +17,7 @@ export default {
   rounds: 1,
   roundSeconds: 0, // untimed — the game ends by the scrabble rules
   pitch: "1 board · live turns",
+  instantStart: true, // no clock — straight to the board, no splash
   // two words crossing on a premium square
   icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
     <rect x="2.5" y="9" width="19" height="6" rx="1.6"/>

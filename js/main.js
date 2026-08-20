@@ -633,28 +633,52 @@ function playFlow(match, game, me, rival) {
 
   const ready = () => {
     const next = myRounds.length + 1;
+
+    // Untimed games (scrabble, blackjack) skip the splash entirely — there
+    // is no clock to warn about, so opening the match IS entering the game.
+    if (game.instantStart) {
+      setView(`<main class="page"><p class="loading">Setting up…</p></main>`);
+      game.prepare().then((assets) => { if (!dead) playRound(next, assets); })
+        .catch(() => {
+          if (dead) return;
+          setView(`<main class="page"><p class="loading">Couldn't load the game — check your connection.</p>
+            <a class="btn" href="#/">Home</a></main>`);
+        });
+      return;
+    }
+
+    // Timer games keep a splash (the clock shouldn't start by surprise),
+    // but a lean one: current score past round 1, rules folded away.
+    const mine = myRounds.reduce((sum, r) => sum + (Number(r?.score) || 0), 0);
+    const theirs = totalOf(match, rival);
     setView(`
       <main class="page play-intro">
         <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
         <div class="versus"><b class="is-me">${esc(me)}</b><span>vs</span><b class="is-rival">${esc(rival)}</b></div>
-        <ul class="rules">
-          ${(game.rules || [
-            `${match.rounds} rounds, ${game.roundSeconds} seconds each.`,
-            "Same puzzles for both of you — same seed, same letters.",
-            "Rounds move in lockstep: you both play round 1 before either of you starts round 2.",
-            "3–4 letters = 1 pt · 5 = 2 · 6 = 3 · 7 = 5 · 8+ = 11.",
-          ]).map((r) => `<li>${esc(r)}</li>`).join("")}
-        </ul>
-        ${next > 1 ? `<p class="hint">Rounds 1–${next - 1} are banked. Up next: round ${next}.</p>` : ""}
-        <button class="btn btn-primary" data-start disabled>Loading tiles…</button>
+        ${next > 1 ? `
+          <div class="scoreline scoreline-sm">
+            <div class="scoreline-side is-me"><b>${scoreLabel(game, mine)}</b><span>${esc(me)}</span></div>
+            <div class="scoreline-side is-rival"><b>${scoreLabel(game, theirs)}</b><span>${esc(rival)}</span></div>
+          </div>
+          <p class="hint">After ${next - 1} round${next > 2 ? "s" : ""} — round ${next} up next.</p>` : ""}
+        <button class="btn btn-primary" data-start disabled>Loading…</button>
+        <details class="rules-fold">
+          <summary>How to play</summary>
+          <ul class="rules">
+            ${(game.rules || [
+              `${match.rounds} rounds, ${game.roundSeconds} seconds each.`,
+              "Same puzzles for both of you — same seed, same letters.",
+              "Rounds move in lockstep: you both play round 1 before either of you starts round 2.",
+              "3–4 letters = 1 pt · 5 = 2 · 6 = 3 · 7 = 5 · 8+ = 11.",
+            ]).map((r) => `<li>${esc(r)}</li>`).join("")}
+          </ul>
+        </details>
       </main>`);
     const btn = app.querySelector("[data-start]");
-    // A live-turn game already under way resumes rather than "starts"
-    const resuming = Boolean(match.results[me]?.progress?.moves?.length);
     game.prepare().then((assets) => {
       if (dead) return;
       btn.disabled = false;
-      btn.textContent = resuming ? "Resume game" : `Start round ${next}`;
+      btn.textContent = `Start round ${next}`;
       btn.addEventListener("click", () => playRound(next, assets), { once: true });
     }).catch(() => { btn.textContent = "Couldn't load the word list — check your connection."; });
   };
