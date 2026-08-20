@@ -10,6 +10,7 @@
 import { initStore } from "./store/index.js";
 import { GAMES, getGame } from "./games/registry.js";
 import { USE_FIREBASE, AUTH_PROVIDER } from "./config.js";
+import { pushSupported, registerServiceWorker, currentSubscription, enablePush } from "./push.js";
 
 // Real sign-in (Apple/Google via Firebase) is active only when both a
 // backend and a provider are configured; otherwise login is username-only.
@@ -194,6 +195,9 @@ document.addEventListener("visibilitychange", () => {
 // Warm caches in the background so the first round starts instantly.
 setTimeout(() => GAMES.forEach((g) => g.prepare().catch(() => {})), 500);
 
+// The service worker handles push while the app is closed.
+if (USE_FIREBASE) registerServiceWorker();
+
 // ── Views ────────────────────────────────────────────────────────────────
 
 function viewLogin() {
@@ -301,7 +305,10 @@ async function viewHome() {
     <main class="home">
       <header class="home-head">
         <h1 class="wordmark wordmark-sm">Lilly&nbsp;Games</h1>
-        <button class="userchip" data-logout title="Switch player">${esc(me)}</button>
+        <span class="home-tools">
+          <button class="userchip push-bell" data-bell hidden title="Get notified when it's your move">🔔</button>
+          <button class="userchip" data-logout title="Switch player">${esc(me)}</button>
+        </span>
       </header>
       ${demoBanner()}
       <div data-content><p class="loading">Dealing tiles…</p></div>
@@ -314,6 +321,26 @@ async function viewHome() {
     session.user = null;
     location.hash = "#/login";
   });
+
+  // Turn-alert bell: shown until this device is subscribed to push.
+  const bell = app.querySelector("[data-bell]");
+  if (USE_FIREBASE && pushSupported() && Notification.permission !== "denied") {
+    currentSubscription().then((sub) => {
+      if (sub || !bell.isConnected) return;
+      bell.hidden = false;
+      bell.addEventListener("click", async () => {
+        bell.disabled = true;
+        try {
+          await enablePush(store, me);
+          bell.hidden = true;
+          alert("Turn alerts are on for this device.");
+        } catch {
+          bell.disabled = false;
+          alert("Couldn't turn on notifications. On iPhone: add the app to your Home Screen first, then allow notifications when asked.");
+        }
+      });
+    }).catch(() => {});
+  }
 
   const content = app.querySelector("[data-content]");
   let lastMatches = null;

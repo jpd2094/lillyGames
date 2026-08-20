@@ -1,2 +1,6 @@
 .playwright-mcp/
 .DS_Store
+
+# Cloud Functions: local deps and the VAPID private key
+functions/node_modules/
+functions/.env

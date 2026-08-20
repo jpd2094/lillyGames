@@ -133,6 +133,13 @@ export async function createFirebaseStore(firebaseConfig, authProvider = "") {
       await fs.enableNetwork(db);
     },
 
+    // Web Push subscriptions live on my own user doc, keyed per device so
+    // phone and laptop can both subscribe. Only ever touches users/<me>.
+    async savePushSubscription(name, subJson) {
+      const key = "d" + Math.abs([...subJson.endpoint].reduce((h, c) => (h * 33 + c.charCodeAt(0)) | 0, 5381)).toString(36);
+      await fs.updateDoc(userRef(name), { [`push.${key}`]: subJson });
+    },
+
     // Presence heartbeat: "I have this match's round open right now".
     // A timestamp under my own results entry; 0 clears it on clean exit.
     async submitPresence(matchId, player, ts) {

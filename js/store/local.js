@@ -68,6 +68,7 @@ export function createLocalStore() {
     },
 
     async reviveConnection() {}, // nothing to revive in localStorage mode
+    async savePushSubscription() {}, // no push server in demo mode
 
     async submitPresence(matchId, player, ts) {
       const db = load();

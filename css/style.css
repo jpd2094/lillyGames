@@ -129,6 +129,8 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 
 /* ── Home ── */
 .home-head { display: flex; align-items: center; justify-content: space-between; }
+.home-tools { display: flex; gap: 8px; align-items: center; }
+.push-bell { font-size: 0.95rem; line-height: 1; }
 .userchip {
   padding: 7px 14px;
   border-radius: 999px;

@@ -20,3 +20,7 @@ export const USE_FIREBASE = Boolean(firebaseConfig.apiKey);
 // console and (2) the locked-down Firestore rules from the README are
 // published — flipping early locks everyone out.
 export const AUTH_PROVIDER = "apple";
+
+// Public half of the Web Push VAPID key pair (safe to publish — the private
+// half lives only in the Cloud Function's environment).
+export const PUSH_PUBLIC_KEY = "BEfpLghzSD6-HDQdUC3ovHeQA4X9ccFNbVgEEQYfgpW0uKIG4WwaJ4P0M2AtPtCjx7ioZbdd8L5Cgn7B5DmI7cw";
