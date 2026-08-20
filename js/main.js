@@ -127,14 +127,52 @@ async function route() {
 window.addEventListener("hashchange", route);
 route();
 
-// Coming back to the app after it was backgrounded: rebuild the home screen
-// so match states are fresh even if the live connection was dropped while
-// the phone slept. (Match views handle their own wake-up checks; forms and
-// active rounds are left alone.)
+// Coming back to the app after it was backgrounded: iOS (especially when
+// installed to the home screen) kills the network while the phone sleeps,
+// and the Firestore client can wake up wedged — so first cycle the store's
+// connection, then rebuild the home screen so match states are fresh.
+// (Match views handle their own wake-up checks; forms and active rounds are
+// left alone.)
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  store?.reviveConnection?.().catch(() => {});
   const hash = location.hash || "#/";
-  if (!document.hidden && (hash === "#/" || hash === "#")) route();
+  if (hash === "#/" || hash === "#") route();
 });
+
+// Pull-to-refresh: the installed web app has no reload button, so dragging
+// down from the very top of the page hard-reloads. Game surfaces that own
+// touch gestures are excluded so tracing a word can't trigger it.
+(function pullToRefresh() {
+  const bar = document.createElement("div");
+  bar.className = "ptr";
+  document.body.prepend(bar);
+  const ARM_AT = 120;
+  let startY = null, pulled = 0;
+  window.addEventListener("touchstart", (e) => {
+    const onGame = e.target.closest?.(".board, .rack, .sc-board, .sc-rack, .bj-table");
+    startY = window.scrollY <= 0 && !onGame ? e.touches[0].clientY : null;
+    pulled = 0;
+  }, { passive: true });
+  window.addEventListener("touchmove", (e) => {
+    if (startY === null) return;
+    pulled = e.touches[0].clientY - startY;
+    if (pulled > 16) {
+      bar.style.height = `${Math.min(60, (pulled - 16) * 0.4)}px`;
+      bar.classList.toggle("is-armed", pulled > ARM_AT);
+      bar.textContent = pulled > ARM_AT ? "↻ Let go to refresh" : "↓ Pull to refresh";
+    }
+  }, { passive: true });
+  window.addEventListener("touchend", () => {
+    if (startY !== null && pulled > ARM_AT) {
+      bar.textContent = "Refreshing…";
+      location.reload();
+    } else {
+      bar.style.height = "0px";
+    }
+    startY = null;
+  });
+})();
 
 // Warm caches in the background so the first round starts instantly.
 setTimeout(() => GAMES.forEach((g) => g.prepare().catch(() => {})), 500);
@@ -478,6 +516,7 @@ function playFlow(match, game, me, rival) {
     setView(`<main class="page page-round" data-round-host></main>`);
     destroyRound = game.mountRound(app.querySelector("[data-round-host]"), {
       seed: match.seed, round, totalRounds: match.rounds, assets,
+      me, players: match.players, results: match.results,
       // Live hooks (optional for games): publish my mid-round progress under
       // my own results entry, and watch the rival's entry as they play.
       reportProgress: (progress) => {

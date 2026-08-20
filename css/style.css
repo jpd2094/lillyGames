@@ -326,6 +326,19 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
    property would silently defeat el.hidden = true. Never let it. */
 [hidden] { display: none !important; }
 
+/* Pull-to-refresh bar (installed web app has no reload control) */
+.ptr {
+  height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding-bottom: 0;
+}
+.ptr.is-armed { color: var(--gold); font-weight: 700; }
+
 /* ── Blackjack Duel ── */
 .bj-rival {
   margin: 4px 0 10px;
@@ -395,6 +408,79 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .bj-ledger tbody tr { border-top: 1px solid var(--line); }
 .bj-ledger .is-plus { color: var(--mint); }
 .bj-ledger .is-minus { color: var(--coral); }
+
+/* ── Scrabble ── */
+.sc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.sc-side { text-align: center; min-width: 72px; }
+.sc-side b { font-family: var(--display); font-size: 1.5rem; display: block; line-height: 1.1; }
+.sc-side span { color: var(--muted); font-size: 0.75rem; }
+.sc-side.is-me b { color: var(--gold); }
+.sc-side.is-rival b { color: var(--coral); }
+.sc-mid { text-align: center; display: grid; gap: 2px; }
+.sc-turn { font-weight: 700; font-size: 0.85rem; }
+.sc-bag { color: var(--muted); font-size: 0.7rem; }
+.sc-note { min-height: 1.2em; text-align: center; color: var(--muted); font-size: 0.8rem; margin: 6px 0; }
+.sc-note.is-error { color: var(--coral); }
+.sc-note.is-shake { animation: shake 0.3s ease; }
+.sc-board {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  gap: 2px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.sc-cell {
+  aspect-ratio: 1;
+  display: grid; place-items: center;
+  background: var(--felt-raise);
+  border: 0; padding: 0;
+  border-radius: 2px;
+  font-size: 0.45rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.85);
+  position: relative;
+}
+.sc-cell.is-dl { background: #3d7fb8; }
+.sc-cell.is-tl { background: #3d9b57; }
+.sc-cell.is-dw { background: #b8503d; }
+.sc-cell.is-tw { background: #d07b28; }
+.sc-cell.sc-tile {
+  background: var(--tile);
+  color: var(--tile-ink);
+  font-family: var(--serif);
+  font-size: clamp(0.7rem, 3.2vw, 1rem);
+  border-radius: 3px;
+  box-shadow: 0 1px 0 var(--tile-edge);
+}
+.sc-cell.sc-tile i {
+  font-style: normal;
+  position: absolute; right: 1px; bottom: 0;
+  font-size: 0.55em;
+  line-height: 1;
+}
+.sc-cell.sc-tile.is-pending { outline: 2px solid var(--gold); z-index: 1; }
+.sc-cell.sc-tile.is-blank { color: #7a5b1e; }
+.sc-rack { display: flex; justify-content: center; gap: 6px; margin-top: 12px; min-height: 58px; }
+.sc-rtile { width: 44px; height: 56px; font-size: 1.2rem; position: relative; }
+.sc-rtile i { font-style: normal; position: absolute; right: 3px; bottom: 2px; font-size: 0.6rem; }
+.sc-rtile.is-swap { outline: 3px solid var(--coral); }
+.sc-actions { display: flex; gap: 6px; margin-top: 12px; }
+.sc-actions .btn { flex: 1; padding: 11px 2px; font-size: 0.85rem; }
+.sc-picker {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--felt-raise);
+}
+.sc-picker p { color: var(--muted); font-size: 0.85rem; margin-bottom: 8px; text-align: center; }
+.sc-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+.sc-pick { aspect-ratio: 1; font-size: 0.95rem; border-radius: 6px; }
+.sc-board-mini { max-width: 340px; margin: 0 auto 14px; }
+.sc-board-mini .sc-cell { border-radius: 1px; font-size: 0; }
+.sc-board-mini .sc-cell.sc-tile { font-size: 0.6rem; }
+.sc-board-mini .sc-cell.sc-tile i { display: none; }
 
 .tile {
   aspect-ratio: 1;

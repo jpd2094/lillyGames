@@ -67,6 +67,8 @@ export function createLocalStore() {
       return load().matches[id] || null;
     },
 
+    async reviveConnection() {}, // nothing to revive in localStorage mode
+
     // Transient mid-round progress (live rival ticker). Overwritten by the
     // round's real result when submitResult lands.
     async submitProgress(matchId, player, progress) {

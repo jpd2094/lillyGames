@@ -125,6 +125,14 @@ export async function createFirebaseStore(firebaseConfig, authProvider = "") {
       return snap.exists() ? snap.data() : null;
     },
 
+    // iOS kills the network while the phone sleeps and the Firestore client
+    // can wake up wedged — listeners attached, nothing delivered. Cycling
+    // the network forces a clean reconnect and re-delivers every listener.
+    async reviveConnection() {
+      await fs.disableNetwork(db);
+      await fs.enableNetwork(db);
+    },
+
     // Transient mid-round progress (live rival ticker). Same field-path
     // discipline as submitResult: only ever touches results.<own name>, so
     // it stays legal under the locked-down rules.
