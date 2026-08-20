@@ -422,12 +422,21 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .sc-note { min-height: 1.2em; text-align: center; color: var(--muted); font-size: 0.8rem; margin: 6px 0; }
 .sc-note.is-error { color: var(--coral); }
 .sc-note.is-shake { animation: shake 0.3s ease; }
+.sc-viewport {
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  touch-action: none; /* the board owns its gestures: drag, pan, pinch */
+  position: relative;
+}
 .sc-board {
   display: grid;
   grid-template-columns: repeat(15, 1fr);
   gap: 2px;
   user-select: none;
   -webkit-user-select: none;
+  transform-origin: 0 0;
+  width: 100%;
 }
 .sc-cell {
   aspect-ratio: 1;
@@ -461,7 +470,39 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 }
 .sc-cell.sc-tile.is-pending { outline: 2px solid var(--gold); z-index: 1; }
 .sc-cell.sc-tile.is-blank { color: #7a5b1e; }
-.sc-rack { display: flex; justify-content: center; gap: 5px; margin-top: 12px; min-height: 58px; }
+/* live feedback: staged tiles currently forming fully legal words —
+   must outrank the pending-gold outline (three-class specificity) */
+.sc-cell.is-inword, .sc-cell.sc-tile.is-inword { outline: 2px solid var(--mint); z-index: 2; }
+.sc-cell.sc-tile.is-dragging { opacity: 0.35; }
+.sc-preview {
+  min-height: 1.2em;
+  text-align: center;
+  color: var(--mint);
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 6px 0 0;
+}
+.sc-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  width: 46px; height: 58px;
+  display: grid; place-items: center;
+  background: var(--tile);
+  color: var(--tile-ink);
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 1.25rem;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -110%); /* float above the finger, not under it */
+}
+.sc-rtile.is-dragging { opacity: 0.35; }
+.sc-rack {
+  display: flex; justify-content: center; gap: 5px;
+  margin-top: 12px; min-height: 58px;
+  touch-action: none; /* dragging a tile must not scroll the page */
+}
 /* fluid tiles: 7 must fit a 320pt phone (app padding included) */
 .sc-rtile {
   width: clamp(31px, 10.5vw, 44px);

@@ -6,8 +6,8 @@
 //   onDone({ score, moves }) — fired when the derived game state says over.
 
 import {
-  SIZE, CENTER, PREMIUM, TILE_VALUES,
-  deriveState, validateMove, canExchange, wordsFormed,
+  SIZE, CENTER, PREMIUM, TILE_VALUES, RACK_SIZE,
+  deriveState, validateMove, canExchange, wordsFormed, scoreWords,
 } from "./engine.js";
 
 const PREMIUM_LABEL = { dl: "DL", tl: "TL", dw: "DW", tw: "TW" };
@@ -38,7 +38,10 @@ export function mountRound(container, opts) {
         <div class="sc-side is-rival"><b data-rival-score>0</b><span>${esc(rival)}</span></div>
       </div>
       <p class="sc-note" data-note>&nbsp;</p>
-      <div class="sc-board" data-board></div>
+      <div class="sc-viewport" data-viewport>
+        <div class="sc-board" data-board></div>
+      </div>
+      <p class="sc-preview" data-preview>&nbsp;</p>
       <div class="sc-rack" data-rack></div>
       <div class="sc-actions" data-actions>
         <button class="btn" data-do="swap">Swap</button>
@@ -58,6 +61,7 @@ export function mountRound(container, opts) {
 
   const el = (s) => container.querySelector(s);
   const boardEl = el("[data-board]"), rackEl = el("[data-rack]"), noteEl = el("[data-note]");
+  const viewportEl = el("[data-viewport]"), previewEl = el("[data-preview]");
   const pickerEl = el("[data-picker]");
   let pickerPos = -1;
 
@@ -115,13 +119,19 @@ export function mountRound(container, opts) {
     onDone({ score: state.finalScores[myIdx], moves: myMoves });
   }
 
-  function place(pos) {
-    if (selected < 0 || state.board[pos] || pending.some((t) => t.pos === pos)) return;
-    const ch = rackView[selected];
+  function place(pos, ri = selected) {
+    if (ri < 0 || state.board[pos] || pending.some((t) => t.pos === pos)) return;
+    const ch = rackView[ri];
     if (ch === undefined) return;
-    if (ch === "?") { pickerPos = pos; pickerEl.hidden = false; return; }
+    if (ch === "?") {
+      selected = ri; // placeBlank's staleness guard keys off the selection
+      pickerPos = pos;
+      pickerEl.hidden = false;
+      render();
+      return;
+    }
     pending.push({ pos, letter: ch, blank: false });
-    rackView.splice(selected, 1);
+    rackView.splice(ri, 1);
     selected = -1;
     render();
   }
@@ -203,6 +213,175 @@ export function mountRound(container, opts) {
     }
   }
 
+  // ── Zoom & pan (pinch, trackpad pinch / ctrl+wheel, double-tap) ────────
+  const zoom = { s: 1, tx: 0, ty: 0 };
+
+  function applyZoom() {
+    const limit = viewportEl.clientWidth * (zoom.s - 1);
+    zoom.tx = Math.min(0, Math.max(-limit, zoom.tx));
+    zoom.ty = Math.min(0, Math.max(-limit, zoom.ty));
+    boardEl.style.transform = `translate(${zoom.tx}px, ${zoom.ty}px) scale(${zoom.s})`;
+  }
+
+  // rescale around a fixed viewport point so the spot under your fingers stays put
+  function setScale(s, cx, cy) {
+    s = Math.min(2.5, Math.max(1, s));
+    const k = s / zoom.s;
+    zoom.tx = cx - k * (cx - zoom.tx);
+    zoom.ty = cy - k * (cy - zoom.ty);
+    zoom.s = s;
+    if (s === 1) { zoom.tx = 0; zoom.ty = 0; }
+    applyZoom();
+  }
+
+  function viewportPoint(e) {
+    const r = viewportEl.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  }
+
+  viewportEl.addEventListener("wheel", (e) => {
+    if (!e.ctrlKey && !e.metaKey) return; // trackpad pinch arrives as ctrl+wheel
+    e.preventDefault();
+    const [cx, cy] = viewportPoint(e);
+    setScale(zoom.s * (e.deltaY < 0 ? 1.12 : 0.89), cx, cy);
+  }, { passive: false });
+
+  // ── Dragging tiles + touch pan/pinch ───────────────────────────────────
+  const pointers = new Map(); // pointerId -> {x, y}
+  let pinch = null; // {dist, s}
+  let pan = null;   // {x, y, tx, ty}
+  let drag = null;  // {kind: "rack"|"pending", ri?, pos?, letter, blank, startX, startY, active, ghost}
+  let suppressClick = false;
+  let lastTap = { t: 0, x: 0, y: 0 };
+
+  function makeGhost(letter, blank) {
+    const g = document.createElement("div");
+    g.className = "sc-ghost" + (blank ? " is-blank" : "");
+    g.textContent = blank && letter === "?" ? "" : letter.toUpperCase();
+    document.body.appendChild(g);
+    return g;
+  }
+
+  function startDragMaybe(e, info) {
+    if (!myTurn() || swapMode || !pickerEl.hidden || state.over) return;
+    drag = { ...info, startX: e.clientX, startY: e.clientY, active: false, ghost: null };
+  }
+
+  function dropTarget(e) {
+    // the ghost floats ~35px above the finger so it isn't hidden under it —
+    // drop where the ghost visually sits, not where the finger is
+    const hit = document.elementFromPoint(e.clientX, e.clientY - 35);
+    const cell = hit?.closest?.("[data-pos]");
+    return cell && boardEl.contains(cell) ? Number(cell.dataset.pos) : null;
+  }
+
+  function onPointerDown(e) {
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    suppressClick = false;
+    if (pointers.size === 2) {
+      // second finger: whatever was in flight becomes a pinch
+      if (drag?.ghost) drag.ghost.remove();
+      drag = null;
+      pan = null;
+      const [a, b] = [...pointers.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), s: zoom.s };
+      return;
+    }
+    const rackTile = e.target.closest?.(".sc-rtile");
+    const boardCell = e.target.closest?.("[data-pos]");
+    if (rackTile && rackEl.contains(rackTile)) {
+      const ri = Number(rackTile.dataset.ri);
+      startDragMaybe(e, { kind: "rack", ri, letter: rackView[ri], blank: rackView[ri] === "?" });
+    } else if (boardCell && boardEl.contains(boardCell)) {
+      const p = Number(boardCell.dataset.pos);
+      const pend = pending.find((t) => t.pos === p);
+      if (pend) startDragMaybe(e, { kind: "pending", pos: p, letter: pend.letter, blank: pend.blank });
+      else if (zoom.s > 1) pan = { x: e.clientX, y: e.clientY, tx: zoom.tx, ty: zoom.ty };
+    }
+  }
+
+  function onPointerMove(e) {
+    const pt = pointers.get(e.pointerId);
+    if (!pt) return;
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    if (pinch && pointers.size >= 2) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      const r = viewportEl.getBoundingClientRect();
+      setScale(pinch.s * (dist / pinch.dist), (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+      return;
+    }
+    if (drag) {
+      if (!drag.active && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > 8) {
+        drag.active = true;
+        drag.ghost = makeGhost(drag.letter, drag.blank);
+        if (drag.kind === "rack") rackEl.querySelector(`[data-ri="${drag.ri}"]`)?.classList.add("is-dragging");
+        else boardEl.querySelector(`[data-pos="${drag.pos}"]`)?.classList.add("is-dragging");
+      }
+      if (drag.active) {
+        drag.ghost.style.left = `${e.clientX}px`;
+        drag.ghost.style.top = `${e.clientY}px`;
+      }
+      return;
+    }
+    if (pan) {
+      zoom.tx = pan.tx + (e.clientX - pan.x);
+      zoom.ty = pan.ty + (e.clientY - pan.y);
+      applyZoom();
+    }
+  }
+
+  function onPointerUp(e) {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (drag) {
+      const d = drag;
+      drag = null;
+      if (d.active) {
+        d.ghost?.remove();
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 0);
+        const target = dropTarget(e);
+        if (d.kind === "rack") {
+          if (target !== null) place(target, d.ri);
+          else render(); // clears is-dragging
+        } else {
+          const pend = pending.find((t) => t.pos === d.pos);
+          if (pend && target !== null && !state.board[target] && !pending.some((t) => t.pos === target)) {
+            pend.pos = target; // slide the staged tile to a new square
+          } else if (pend && target === null) {
+            pending = pending.filter((t) => t !== pend); // dropped off-board: back to the rack
+            rackView.push(pend.blank ? "?" : pend.letter);
+          }
+          render();
+        }
+        return;
+      }
+    }
+    if (pan) { pan = null; return; }
+    // double-tap on the board toggles zoom — but a tap while a rack tile is
+    // selected is a placement, never a zoom gesture
+    if (selected >= 0) { lastTap = { t: 0, x: 0, y: 0 }; return; }
+    const onBoard = e.target.closest?.("[data-pos]");
+    if (onBoard && boardEl.contains(onBoard)) {
+      const now = Date.now();
+      if (now - lastTap.t < 300 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30) {
+        const r = viewportEl.getBoundingClientRect();
+        setScale(zoom.s > 1 ? 1 : 2, e.clientX - r.left, e.clientY - r.top);
+        lastTap = { t: 0, x: 0, y: 0 };
+        return;
+      }
+      lastTap = { t: now, x: e.clientX, y: e.clientY };
+    }
+  }
+
+  viewportEl.addEventListener("pointerdown", onPointerDown);
+  rackEl.addEventListener("pointerdown", onPointerDown);
+  window.addEventListener("pointermove", onPointerMove);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
+
   // ── Live updates (rival's moves, and my own from another device) ───────
   onRivalUpdate?.((entry, match) => {
     if (ended) return;
@@ -253,15 +432,31 @@ export function mountRound(container, opts) {
     el("[data-bag]").textContent = `${state.bagRemaining} in bag`;
     el("[data-turn]").textContent = state.over ? "Game over" : myTurn() ? "Your turn" : `${rival}'s turn`;
 
+    // Live feedback: the moment the staged tiles form a fully legal play,
+    // tint every word it makes and show the score it would bank.
+    let goodCells = null;
+    previewEl.textContent = " ";
+    if (pending.length && myTurn()) {
+      const v = validateMove(state, myIdx, pending, dictionary);
+      if (v.ok) {
+        const words = wordsFormed(state.board, pending);
+        goodCells = new Set(words.flat().map((c) => c.pos));
+        const parts = words.map((w) => `${w.map((c) => c.letter).join("").toUpperCase()} ${scoreWords([w], 0)}`);
+        previewEl.textContent =
+          `${parts.join(" · ")}${pending.length === RACK_SIZE ? " · bingo +50" : ""} — ${v.score} pts`;
+      }
+    }
+
     const pendingMap = new Map(pending.map((t) => [t.pos, t]));
     boardEl.innerHTML = Array.from({ length: SIZE * SIZE }, (_, p) => {
       const cell = state.board[p], pend = pendingMap.get(p);
+      const good = goodCells?.has(p) ? " is-inword" : "";
       if (cell || pend) {
         const t = cell || pend;
         // letters flow in from the rival's stored moves — never trust them
         const letter = /^[a-z]$/.test(t.letter) ? t.letter.toUpperCase() : "?";
         const value = t.blank ? 0 : TILE_VALUES[t.letter] || 0;
-        return `<button class="sc-cell sc-tile${pend ? " is-pending" : ""}${t.blank ? " is-blank" : ""}" data-pos="${p}">
+        return `<button class="sc-cell sc-tile${pend ? " is-pending" : ""}${t.blank ? " is-blank" : ""}${good}" data-pos="${p}">
           ${letter}<i>${value || ""}</i></button>`;
       }
       const prem = PREMIUM[p];
@@ -282,7 +477,7 @@ export function mountRound(container, opts) {
 
   boardEl.addEventListener("click", (e) => {
     const cell = e.target.closest("[data-pos]");
-    if (!cell || swapMode || !myTurn() || !pickerEl.hidden) return;
+    if (!cell || swapMode || !myTurn() || !pickerEl.hidden || suppressClick) return;
     const p = Number(cell.dataset.pos);
     const pendIdx = pending.findIndex((t) => t.pos === p);
     if (pendIdx !== -1) { // take a pending tile back
@@ -296,7 +491,7 @@ export function mountRound(container, opts) {
 
   rackEl.addEventListener("click", (e) => {
     const t = e.target.closest("[data-ri]");
-    if (!t || !pickerEl.hidden) return;
+    if (!t || !pickerEl.hidden || suppressClick) return;
     const i = Number(t.dataset.ri);
     if (swapMode) {
       swapSel.has(i) ? swapSel.delete(i) : swapSel.add(i);
@@ -333,6 +528,10 @@ export function mountRound(container, opts) {
 
   return function destroy() {
     ended = true;
+    drag?.ghost?.remove();
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerUp);
   };
 }
 
