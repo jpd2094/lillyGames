@@ -25,6 +25,8 @@ Three games so far:
 - **Wordle Duel** — three rounds, one shared secret word per round, six
   guesses. Fewest total guesses wins, total time breaks ties, and blowing a
   round costs seven.
+- **Cup Pong** — GamePigeon-style: flick the ball at an identical 10-cup rack,
+  pure skill, no randomness. Fewest throws to clear it wins; time breaks ties.
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -245,6 +247,10 @@ js/games/wordle/      sixth game
                       guesses-then-time score encoding (pure)
   ui.js               board + keyboard, count-up clock, live guess ticker
   index.js            the game-plugin definition + colored round boards
+js/games/cuppong/     seventh game
+  engine.js           rack geometry, swipe-to-landing mapping, hits (pure)
+  ui.js               canvas table: fake-3D cups, ball flight, flick input
+  index.js            the game-plugin definition + throw/accuracy results
 ```
 
 ## Running the tests

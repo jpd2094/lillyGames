@@ -664,6 +664,17 @@ a.rivalry { display: block; color: inherit; text-decoration: none; }
 .su-grid-mini { max-width: 300px; margin: 14px auto 0; }
 .su-grid-mini .su-cell { font-size: 0.7rem; }
 
+/* ── Cup Pong ── */
+.cp-table {
+  position: relative;
+  width: 100%;
+  height: min(66dvh, 560px);
+  touch-action: none; /* the table owns the flick gesture */
+  border-radius: 10px;
+  overflow: hidden;
+}
+.cp-table canvas { display: block; }
+
 /* ── Wordle Duel ── */
 .wd-board { display: grid; gap: 5px; justify-content: center; margin: 4px 0 14px; }
 .wd-row { display: grid; grid-template-columns: repeat(5, 52px); gap: 5px; }
