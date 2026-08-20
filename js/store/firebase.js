@@ -125,6 +125,15 @@ export async function createFirebaseStore(firebaseConfig, authProvider = "") {
       return snap.exists() ? snap.data() : null;
     },
 
+    // Transient mid-round progress (live rival ticker). Same field-path
+    // discipline as submitResult: only ever touches results.<own name>, so
+    // it stays legal under the locked-down rules.
+    async submitProgress(matchId, player, progress) {
+      await fs.updateDoc(matchRef(matchId), {
+        [`results.${player}.progress`]: progress,
+      });
+    },
+
     async submitResult(matchId, player, result) {
       // Field-path update: each player only ever writes results.<own name>,
       // so simultaneous submissions from both players can't clobber each

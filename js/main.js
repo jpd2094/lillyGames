@@ -24,7 +24,7 @@ let cleanup = null; // per-view teardown (unsubscribes, timers)
 // an out-of-date cached client (GitHub Pages caches JS for ~10 min after a
 // deploy) refuses to play a match it doesn't understand instead of corrupting
 // it or silently failing to save.
-const SCHEMA = 2;
+const SCHEMA = 3;
 
 // ── Session ──────────────────────────────────────────────────────────────
 const session = {
@@ -346,7 +346,7 @@ function viewNew() {
             <label class="game-option">
               <input type="radio" name="game" value="${g.id}" ${i === 0 ? "checked" : ""}>
               <span class="game-option-card"><b>${esc(g.name)}</b><small>${esc(g.tagline)}</small>
-              <em>${g.rounds} rounds · ${g.roundSeconds}s each</em></span>
+              <em>${esc(g.pitch || `${g.rounds} rounds · ${g.roundSeconds}s each`)}</em></span>
             </label>`).join("")}
         </div>
         <h2>Rival</h2>
@@ -445,6 +445,8 @@ function playFlow(match, game, me, rival) {
   let destroyRound = null;
   let dead = false; // set on navigation away; silences pending async work
   const myRounds = (match.results[me]?.rounds || []).slice();
+  const liveUnsubs = []; // rival subscriptions opened for the current round
+  const dropLive = () => { liveUnsubs.splice(0).forEach((u) => u()); };
 
   const ready = () => {
     const next = myRounds.length + 1;
@@ -453,10 +455,12 @@ function playFlow(match, game, me, rival) {
         <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
         <div class="versus"><b class="is-me">${esc(me)}</b><span>vs</span><b class="is-rival">${esc(rival)}</b></div>
         <ul class="rules">
-          <li>${match.rounds} rounds, ${game.roundSeconds} seconds each.</li>
-          <li>Same puzzles for both of you — same seed, same letters.</li>
-          <li>Rounds move in lockstep: you both play round 1 before either of you starts round 2.</li>
-          <li>3–4 letters = 1 pt · 5 = 2 · 6 = 3 · 7 = 5 · 8+ = 11.</li>
+          ${(game.rules || [
+            `${match.rounds} rounds, ${game.roundSeconds} seconds each.`,
+            "Same puzzles for both of you — same seed, same letters.",
+            "Rounds move in lockstep: you both play round 1 before either of you starts round 2.",
+            "3–4 letters = 1 pt · 5 = 2 · 6 = 3 · 7 = 5 · 8+ = 11.",
+          ]).map((r) => `<li>${esc(r)}</li>`).join("")}
         </ul>
         ${next > 1 ? `<p class="hint">Rounds 1–${next - 1} are banked. Up next: round ${next}.</p>` : ""}
         <button class="btn btn-primary" data-start disabled>Loading tiles…</button>
@@ -474,8 +478,21 @@ function playFlow(match, game, me, rival) {
     setView(`<main class="page page-round" data-round-host></main>`);
     destroyRound = game.mountRound(app.querySelector("[data-round-host]"), {
       seed: match.seed, round, totalRounds: match.rounds, assets,
+      // Live hooks (optional for games): publish my mid-round progress under
+      // my own results entry, and watch the rival's entry as they play.
+      reportProgress: (progress) => {
+        if (!dead) store.submitProgress(match.id, me, progress).catch(() => {});
+      },
+      onRivalUpdate: (cb) => {
+        const unsub = store.subscribeMatch(match.id, (m) => {
+          if (!dead && m) cb(m.results?.[rival] ?? null);
+        });
+        liveUnsubs.push(unsub);
+        return unsub;
+      },
       onDone: (result) => {
         destroyRound = null;
+        dropLive();
         myRounds[round - 1] = result;
         submitRound(round, result, assets);
       },
@@ -520,7 +537,7 @@ function playFlow(match, game, me, rival) {
   };
 
   ready();
-  return () => { dead = true; destroyRound?.(); };
+  return () => { dead = true; destroyRound?.(); dropLive(); };
 }
 
 // ── Waiting: I'm ahead of my rival (mid-match) or done entirely ─────────
@@ -539,6 +556,7 @@ function waitScreen(match, game, me, rival) {
              finishes — go tell them the tiles are waiting.</p>`
         : `<p class="hint">Rounds move in lockstep: round ${mine + 1} unlocks once ${esc(rival)}
              plays round ${theirNext}. This screen updates on its own — or come back later.</p>`}
+      <p class="hint" data-rival-live></p>
     </main>`);
 
   // Unlock the moment the rival catches up (or finishes). Belt and braces:
@@ -546,8 +564,17 @@ function waitScreen(match, game, me, rival) {
   // drop live connections when the phone sleeps — so also poll, and check
   // immediately whenever the app returns to the foreground.
   let advanced = false;
+  const liveEl = app.querySelector("[data-rival-live]");
   const consider = (m) => {
-    if (advanced || !m || !(isComplete(m) || canPlay(m, me))) return;
+    if (advanced || !m) return;
+    // Live peek while waiting: if the rival is mid-round and their game
+    // publishes progress (Blackjack Duel's ticker), narrate it here too.
+    const p = m.results?.[rival]?.progress;
+    if (liveEl && p && typeof p.played === "number") {
+      const stale = Number(p.at) && Date.now() - Number(p.at) > 10 * 60_000;
+      liveEl.textContent = `${rival} ${stale ? "paused at" : "is playing —"} hand ${Number(p.played) || 0} · ${Number(p.chips) || 0} chips`;
+    }
+    if (!(isComplete(m) || canPlay(m, me))) return;
     advanced = true;
     teardown();
     route();

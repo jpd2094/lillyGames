@@ -67,6 +67,17 @@ export function createLocalStore() {
       return load().matches[id] || null;
     },
 
+    // Transient mid-round progress (live rival ticker). Overwritten by the
+    // round's real result when submitResult lands.
+    async submitProgress(matchId, player, progress) {
+      const db = load();
+      const match = db.matches[matchId];
+      if (!match) return;
+      (match.results[player] ||= {}).progress = progress;
+      save(db);
+      notify();
+    },
+
     async submitResult(matchId, player, result) {
       const db = load();
       const match = db.matches[matchId];

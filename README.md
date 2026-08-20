@@ -1,12 +1,19 @@
 # Lilly Games
 
 A tiny head-to-head gaming platform for two friends: pick a username, challenge
-your rival, and keep a lifetime rivalry score. Two games so far: **Word Grid** —
-trace words through a 4×4 letter grid — and **Anagrams** — build words from a
-rack of 8 shuffled letters. Both are 3 rounds × 60 seconds per match, and both
-players get the exact same puzzles. Rounds move in lockstep: each round is saved the
-moment you finish it, and round N+1 unlocks only once both players have played
-round N (whoever finishes a round second rolls straight into the next one).
+your rival, and keep a lifetime rivalry score. Both players always get the
+exact same puzzles, and rounds move in lockstep: each round is saved the moment
+you finish it, and round N+1 unlocks only once both players have played round N
+(whoever finishes a round second rolls straight into the next one).
+
+Three games so far:
+
+- **Word Grid** — trace words through a 4×4 letter grid, 3 rounds × 60 seconds.
+- **Anagrams** — build words from a rack of 8 shuffled letters, 3 rounds × 60 seconds.
+- **Blackjack Duel** — 10 hands of duplicate blackjack: identical cards for both
+  players, so only the decisions differ. A live ticker shows the rival's hand
+  count and chip stack while you play, and the duel checkpoints itself so a
+  refresh resumes instead of replaying cards you've already seen.
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -140,12 +147,23 @@ default-exports:
 {
   id, name, tagline,        // shown on the "New match" screen
   rounds, roundSeconds,     // match shape
+  pitch,                    // optional: picker line, e.g. "1 duel · 10 hands"
+                            //   (default: "N rounds · Ns each")
+  rules,                    // optional: ready-screen bullet strings
   async prepare(),          // load assets once (dictionary, sprites…) → assets
-  mountRound(el, { seed, round, totalRounds, assets, onDone }) → destroy(),
+  mountRound(el, { seed, round, totalRounds, assets, onDone,
+                   reportProgress, onRivalUpdate }) → destroy(),
                             // play ONE round; call onDone({ score, words?/detail? })
   renderResults(el, { match, me, rival, assets }),  // game-specific breakdown
 }
 ```
+
+Live hooks (optional — for games where watching the rival mid-round matters,
+like Blackjack Duel's ticker): `reportProgress(obj)` publishes transient
+progress under your own `results` entry via `store.submitProgress`, and
+`onRivalUpdate(cb)` subscribes `cb` to the rival's results entry (progress
+included) for the duration of the round. The platform tears the subscription
+down when the round ends; games that ignore both hooks work unchanged.
 
 Rules of the contract:
 
@@ -178,6 +196,11 @@ js/games/anagrams/    second game
   solver.js           finds every word buildable from a rack
   ui.js               round UI: tap/type letters, timer, chips
   index.js            the game-plugin definition
+js/games/blackjack/   third game
+  engine.js           duplicate dealing (seeded per-hand decks), hand math,
+                      dealer play, settlement (pure)
+  ui.js               duel UI: actions, per-hand settling, live rival ticker
+  index.js            the game-plugin definition + hand-by-hand ledger
 ```
 
 ## Known limitations (accepted for v1)

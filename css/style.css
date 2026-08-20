@@ -322,6 +322,70 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .rack-actions { display: flex; gap: 8px; margin-top: 14px; }
 .rack-actions .btn { flex: 1; }
 
+/* The UA's [hidden] rule is non-important, so any class with a display
+   property would silently defeat el.hidden = true. Never let it. */
+[hidden] { display: none !important; }
+
+/* ── Blackjack Duel ── */
+.bj-rival {
+  margin: 4px 0 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--felt-raise);
+  border: 1px solid var(--line);
+  color: var(--coral);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.bj-table { display: grid; gap: 14px; margin-top: 8px; }
+.bj-row {
+  display: grid; gap: 6px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+.bj-row.is-active { border-color: var(--gold); }
+.bj-label { color: var(--muted); font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase; }
+.bj-label b { color: var(--tile); font-size: 0.95rem; margin-left: 6px; }
+.bj-label small { margin-left: 8px; }
+.bj-cards { display: flex; flex-wrap: wrap; gap: 6px; min-height: 58px; }
+.card {
+  width: 42px; height: 58px;
+  display: grid; place-items: center;
+  background: var(--tile);
+  color: var(--tile-ink);
+  border-radius: 7px;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1;
+  box-shadow: 0 2px 0 var(--tile-edge), 0 4px 8px rgba(0, 0, 0, 0.3);
+  animation: chip-in 0.25s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.card i { font-style: normal; font-size: 0.85rem; }
+.card.is-red { color: #b3372c; }
+.card.is-back { background: var(--felt-raise); border: 1px solid var(--line); box-shadow: none; }
+.bj-banner {
+  text-align: center;
+  font-family: var(--display);
+  font-size: 1.4rem;
+  margin: 12px 0 4px;
+  color: var(--gold);
+}
+.bj-banner.is-win { color: var(--mint); }
+.bj-banner.is-loss { color: var(--coral); }
+.bj-actions { display: flex; gap: 8px; margin-top: 14px; }
+.bj-actions .btn { flex: 1; padding: 12px 4px; }
+.bj-next { display: block; width: 100%; margin-top: 12px; }
+.bj-ledger { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.bj-ledger th, .bj-ledger td { padding: 4px 6px; text-align: center; }
+.bj-ledger thead th { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.bj-ledger .is-me-th { color: var(--gold); }
+.bj-ledger .is-rival-th { color: var(--coral); }
+.bj-ledger tbody tr { border-top: 1px solid var(--line); }
+.bj-ledger .is-plus { color: var(--mint); }
+.bj-ledger .is-minus { color: var(--coral); }
+
 .tile {
   aspect-ratio: 1;
   display: grid; place-items: center;

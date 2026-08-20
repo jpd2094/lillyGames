@@ -4,8 +4,9 @@
 
 import wordgrid from "./wordgrid/index.js";
 import anagrams from "./anagrams/index.js";
+import blackjack from "./blackjack/index.js";
 
-export const GAMES = [wordgrid, anagrams];
+export const GAMES = [wordgrid, anagrams, blackjack];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;
