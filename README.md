@@ -104,10 +104,13 @@ service cloud.firestore {
 
     match /users/{name} {
       allow read: if authed();
-      // create your own doc; claim an unclaimed legacy name; never steal one
+      // create your own doc; claim an unclaimed legacy name; never steal one.
+      // get('uid', null) — NOT resource.data.uid — because legacy docs have
+      // no uid field at all, and accessing a missing field in rules is an
+      // error (= denied), not null.
       allow create: if authed() && request.resource.data.uid == request.auth.uid;
       allow update: if authed()
-        && (resource.data.uid == null || resource.data.uid == request.auth.uid)
+        && resource.data.get('uid', null) in [null, request.auth.uid]
         && request.resource.data.uid == request.auth.uid;
     }
     match /byUid/{uid} {
