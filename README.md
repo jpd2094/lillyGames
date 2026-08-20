@@ -22,6 +22,9 @@ Three games so far:
 - **Sudoku Race** — the same generated puzzle (unique solution, easy/medium/
   hard picked per match) for both players; the clock counts up from your first
   look and never pauses, and the lowest clean-finish time takes the match.
+- **Wordle Duel** — three rounds, one shared secret word per round, six
+  guesses. Fewest total guesses wins, total time breaks ties, and blowing a
+  round costs seven.
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -233,6 +236,11 @@ js/games/sudoku/      fifth game — a race
   engine.js           seeded unique-solution puzzle generation, conflicts (pure)
   ui.js               grid + number pad, wall-clock timer, live fill ticker
   index.js            the game-plugin definition + times and solution view
+js/games/wordle/      sixth game
+  engine.js           seeded secrets from a baked-in pool, guess marking,
+                      guesses-then-time score encoding (pure)
+  ui.js               board + keyboard, count-up clock, live guess ticker
+  index.js            the game-plugin definition + colored round boards
 ```
 
 ## Running the tests

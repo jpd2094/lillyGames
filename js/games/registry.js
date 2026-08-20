@@ -7,8 +7,9 @@ import anagrams from "./anagrams/index.js";
 import blackjack from "./blackjack/index.js";
 import scrabble from "./scrabble/index.js";
 import sudoku from "./sudoku/index.js";
+import wordle from "./wordle/index.js";
 
-export const GAMES = [wordgrid, anagrams, blackjack, scrabble, sudoku];
+export const GAMES = [wordgrid, anagrams, blackjack, scrabble, sudoku, wordle];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;

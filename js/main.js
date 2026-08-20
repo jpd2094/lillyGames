@@ -718,7 +718,7 @@ function playFlow(match, game, me, rival) {
     setView(`
       <main class="page play-intro">
         <p class="interlude-kicker">Round ${round} of ${match.rounds}</p>
-        <p class="interlude-score">${Number(result.score) || 0}<i>pts</i></p>
+        <p class="interlude-score">${scoreLabel(game, Number(result.score) || 0)}${game.formatScore ? "" : "<i>pts</i>"}</p>
         <p class="hint">${esc(rival)} already played round ${round} — no waiting. Shake it off.</p>
         <button class="btn btn-primary" data-next>Start round ${round + 1}</button>
         <p class="hint"><a class="quiet-link" href="#/">Back to home — round ${round + 1} will wait for you</a></p>
