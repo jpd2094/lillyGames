@@ -114,6 +114,7 @@ const routes = [
   { re: /^#\/claim$/, view: viewClaim },
   { re: /^#\/new$/, view: viewNew },
   { re: /^#\/match\/([a-zA-Z0-9]+)$/, view: viewMatch },
+  { re: /^#\/rivalry\/([a-z0-9_-]+)$/, view: viewRivalry },
 ];
 
 async function route() {
@@ -359,13 +360,13 @@ function renderHome(me, matches) {
       const total = r.wins + r.losses + r.ties;
       const pct = total ? ((r.wins + r.ties / 2) / total) * 100 : 50;
       return `
-        <div class="rivalry">
-          <div class="rivalry-names"><b>${esc(me)}</b><span>vs</span><b>${esc(rival)}</b></div>
+        <a class="rivalry" href="#/rivalry/${esc(rival)}" title="Game-by-game record">
+          <div class="rivalry-names"><b>${esc(me)}</b><span>vs</span><b>${esc(rival)}</b><i class="rivalry-more">›</i></div>
           <div class="tug" role="img" aria-label="${r.wins} wins, ${r.losses} losses, ${r.ties} ties">
             <div class="tug-me" style="width:${pct}%"></div>
           </div>
           <div class="rivalry-record"><span>${r.wins}W</span><span>${r.ties}T</span><span>${r.losses}L</span></div>
-        </div>`;
+        </a>`;
     }).join("");
 
   const card = (m, badge) => {
@@ -410,6 +411,69 @@ function renderHome(me, matches) {
     ${!matches.length ? `<section class="section empty-state">
         <p>No matches yet. Start one and send your rival the word.</p>
       </section>` : ""}`;
+}
+
+// One rivalry, broken down by game: overall record up top, then W/T/L per
+// game type across every finished match against this rival.
+async function viewRivalry(rival) {
+  const me = session.user;
+  setView(`
+    <main class="page rivalry-page">
+      <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(me)} vs ${esc(rival)}</h1></header>
+      <div data-detail><p class="loading">Tallying old scores…</p></div>
+    </main>`);
+
+  const matches = (await store.listMatchesFor(me))
+    .filter((m) => m.players.includes(rival) && isComplete(m));
+  const detail = app.querySelector("[data-detail]");
+  if (!detail) return;
+  if (!matches.length) {
+    detail.innerHTML = `<p class="hint">No finished matches against ${esc(rival)} yet.
+      First blood is still up for grabs.</p>`;
+    return;
+  }
+
+  const overall = { wins: 0, ties: 0, losses: 0 };
+  const perGame = new Map(); // gameId -> {wins, ties, losses, last}
+  for (const m of matches) {
+    const g = perGame.get(m.gameId) || { wins: 0, ties: 0, losses: 0, last: 0 };
+    const w = winnerOf(m);
+    const key = w === "tie" ? "ties" : w === me ? "wins" : "losses";
+    g[key]++;
+    overall[key]++;
+    g.last = Math.max(g.last, m.createdAt);
+    perGame.set(m.gameId, g);
+  }
+
+  const row = (gameId, r) => {
+    const game = getGame(gameId);
+    const total = r.wins + r.ties + r.losses;
+    const pct = total ? ((r.wins + r.ties / 2) / total) * 100 : 50;
+    return `
+      <div class="rivalry">
+        <div class="rivalry-names"><b class="rivalry-game">${esc(game ? game.name : gameId)}</b>
+          <span>${total} match${total === 1 ? "" : "es"}</span></div>
+        <div class="tug" role="img" aria-label="${r.wins} wins, ${r.losses} losses, ${r.ties} ties">
+          <div class="tug-me" style="width:${pct}%"></div>
+        </div>
+        <div class="rivalry-record"><span>${r.wins}W</span><span>${r.ties}T</span><span>${r.losses}L</span></div>
+      </div>`;
+  };
+
+  const overallTotal = overall.wins + overall.ties + overall.losses;
+  const overallPct = overallTotal ? ((overall.wins + overall.ties / 2) / overallTotal) * 100 : 50;
+  detail.innerHTML = `
+    <section class="section">
+      <div class="rivalry is-overall">
+        <div class="rivalry-names"><b>All games</b><span>${overallTotal} match${overallTotal === 1 ? "" : "es"}</span></div>
+        <div class="tug"><div class="tug-me" style="width:${overallPct}%"></div></div>
+        <div class="rivalry-record"><span>${overall.wins}W</span><span>${overall.ties}T</span><span>${overall.losses}L</span></div>
+      </div>
+    </section>
+    <section class="section">
+      <h2>By game</h2>
+      ${[...perGame.entries()].sort((a, b) => b[1].last - a[1].last).map(([id, r]) => row(id, r)).join("")}
+    </section>`;
 }
 
 function viewNew() {
