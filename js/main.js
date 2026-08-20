@@ -306,9 +306,19 @@ async function viewHome() {
 }
 
 function renderHome(me, matches) {
+  // Live-turn games (scrabble) know whose move it actually is mid-round —
+  // ask them, so the badges don't claim "your move" during the rival's turn.
+  const statusOf = (m) => {
+    const g = getGame(m.gameId);
+    return !isComplete(m) && g?.status ? g.status(m, me) : null;
+  };
+  const isMyMove = (m) => {
+    const s = statusOf(m);
+    return canPlay(m, me) && (s ? s.yourTurn : true);
+  };
   const done = matches.filter((m) => isComplete(m));
-  const myMove = matches.filter((m) => !isComplete(m) && canPlay(m, me));
-  const waiting = matches.filter((m) => !isComplete(m) && !canPlay(m, me));
+  const myMove = matches.filter((m) => !isComplete(m) && isMyMove(m));
+  const waiting = matches.filter((m) => !isComplete(m) && !isMyMove(m));
 
   // Rivalry ledger: lifetime record per opponent
   const rivals = {};
@@ -348,11 +358,16 @@ function renderHome(me, matches) {
       </a>`;
   };
 
-  const playBadge = (m) =>
-    `<span class="badge is-go">Play round ${roundsDone(m, me) + 1}</span>`;
+  const playBadge = (m) => {
+    const s = statusOf(m);
+    return `<span class="badge is-go">${s ? esc(s.label) : `Play round ${roundsDone(m, me) + 1}`}</span>`;
+  };
 
-  const waitBadge = (m, rival) =>
-    `<span class="badge">${roundsDone(m, me) >= m.rounds ? "Sealed" : `Their round ${roundsDone(m, rival) + 1}`}</span>`;
+  const waitBadge = (m, rival) => {
+    const s = statusOf(m);
+    if (s) return `<span class="badge">${esc(s.label)}</span>`;
+    return `<span class="badge">${roundsDone(m, me) >= m.rounds ? "Sealed" : `Their round ${roundsDone(m, rival) + 1}`}</span>`;
+  };
 
   const finalBadge = (m, rival) => {
     const mine = totalOf(m, me), theirs = totalOf(m, rival);
@@ -504,10 +519,12 @@ function playFlow(match, game, me, rival) {
         <button class="btn btn-primary" data-start disabled>Loading tiles…</button>
       </main>`);
     const btn = app.querySelector("[data-start]");
+    // A live-turn game already under way resumes rather than "starts"
+    const resuming = Boolean(match.results[me]?.progress?.moves?.length);
     game.prepare().then((assets) => {
       if (dead) return;
       btn.disabled = false;
-      btn.textContent = `Start round ${next}`;
+      btn.textContent = resuming ? "Resume game" : `Start round ${next}`;
       btn.addEventListener("click", () => playRound(next, assets), { once: true });
     }).catch(() => { btn.textContent = "Couldn't load the word list — check your connection."; });
   };
@@ -598,6 +615,7 @@ function waitScreen(match, game, me, rival) {
         : `<p class="hint">Rounds move in lockstep: round ${mine + 1} unlocks once ${esc(rival)}
              plays round ${theirNext}. This screen updates on its own — or come back later.</p>`}
       <p class="hint" data-rival-live></p>
+      <a class="btn btn-primary" href="#/">Back to home</a>
     </main>`);
 
   // Unlock the moment the rival catches up (or finishes). Belt and braces:

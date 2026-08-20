@@ -33,6 +33,7 @@ export function mountRound(container, opts) {
   container.innerHTML = `
     <div class="round sc">
       <div class="sc-head">
+        <a class="back" href="#/" aria-label="Back to home">&larr;</a>
         <div class="sc-side is-me"><b data-my-score>0</b><span>${esc(me)}</span></div>
         <div class="sc-mid"><span class="sc-turn" data-turn></span><span class="sc-bag" data-bag></span></div>
         <div class="sc-side is-rival"><b data-rival-score>0</b><span>${esc(rival)}</span></div>

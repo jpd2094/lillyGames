@@ -158,6 +158,8 @@ default-exports:
   pitch,                    // optional: picker line, e.g. "1 duel · 10 hands"
                             //   (default: "N rounds · Ns each")
   rules,                    // optional: ready-screen bullet strings
+  status(match, me),        // optional (live-turn games): {yourTurn, label}
+                            //   drives the home-screen sections and badges
   async prepare(),          // load assets once (dictionary, sprites…) → assets
   mountRound(el, { seed, round, totalRounds, assets, onDone,
                    me, players, results,          // identity + current entries

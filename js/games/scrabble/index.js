@@ -29,6 +29,19 @@ export default {
     return { dictionary: await loadDictionary() };
   },
 
+  // Whose move is it really? The platform's lockstep bookkeeping can't tell
+  // mid-round, so it asks. Derived from the same move lists as the board.
+  status(match, me) {
+    const movesOf = (p) => match.results[p]?.rounds?.[0]?.moves || match.results[p]?.progress?.moves || [];
+    const byIdx = match.players.map(movesOf);
+    const s = deriveState(match.seed, byIdx[0], byIdx[1]);
+    if (s.over) return null; // ending is handled by round submission
+    const turnPlayer = match.players[s.turn % 2];
+    return turnPlayer === me
+      ? { yourTurn: true, label: "Your move" }
+      : { yourTurn: false, label: `${turnPlayer}'s move` };
+  },
+
   mountRound(container, { seed, assets, me, players, results, onDone, reportProgress, onRivalUpdate }) {
     return mountRoundUi(container, {
       seed, me, players, results,
