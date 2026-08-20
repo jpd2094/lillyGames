@@ -1,6 +1,11 @@
 // Lilly Games — platform shell.
 // Owns: session (username), routing, match lifecycle, rivalry stats.
 // Games own: how a round is played and scored (see js/games/registry.js).
+//
+// Match flow is LOCKSTEP: each round's result is saved to the store the
+// moment the round ends, and round N+1 only unlocks once BOTH players have
+// finished round N. Whoever finishes a round second rolls straight into the
+// next one; whoever finishes first waits (live) for the other.
 
 import { initStore } from "./store/index.js";
 import { GAMES, getGame } from "./games/registry.js";
@@ -43,26 +48,37 @@ function demoBanner() {
     `<p class="demo-note">Demo mode — scores live on this device only. See README to connect Firebase.</p>`;
 }
 
-// Winner logic is platform-owned and game-agnostic: games report numeric
-// totals, the platform compares them once both players have submitted.
-function finalizeMatch(match) {
-  const [a, b] = match.players;
-  const ra = match.results[a], rb = match.results[b];
-  if (!ra || !rb) return { status: "open", winner: null };
-  const winner = ra.total === rb.total ? "tie" : (ra.total > rb.total ? a : b);
-  return { status: "complete", winner };
+// ── Derived match state ──────────────────────────────────────────────────
+// Nothing about progress or the winner is stored — it's all computed from
+// results at read time. With both players submitting rounds concurrently,
+// a stored status field could go stale on a write race; a derived one can't.
+function roundsDone(match, player) {
+  return (match.results[player]?.rounds || []).filter(Boolean).length;
 }
 
-// Mid-match progress survives an accidental refresh (per match, per player).
-const progress = {
-  key: (matchId) => `lilly.progress.${matchId}.${session.user}`,
-  load(matchId) {
-    try { return JSON.parse(localStorage.getItem(this.key(matchId))) || { rounds: [] }; }
-    catch { return { rounds: [] }; }
-  },
-  save(matchId, data) { localStorage.setItem(this.key(matchId), JSON.stringify(data)); },
-  clear(matchId) { localStorage.removeItem(this.key(matchId)); },
-};
+function totalOf(match, player) {
+  return (match.results[player]?.rounds || [])
+    .reduce((sum, r) => sum + (Number(r?.score) || 0), 0);
+}
+
+function isComplete(match) {
+  return match.players.every((p) => roundsDone(match, p) >= match.rounds);
+}
+
+function winnerOf(match) {
+  if (!isComplete(match)) return null;
+  const [a, b] = match.players;
+  const ta = totalOf(match, a), tb = totalOf(match, b);
+  return ta === tb ? "tie" : ta > tb ? a : b;
+}
+
+// Lockstep rule: I may play round N+1 only if my opponent has finished at
+// least as many rounds as I have. (Round 1 is always open to both.)
+function canPlay(match, me) {
+  const rival = match.players.find((p) => p !== me) || me;
+  const mine = roundsDone(match, me);
+  return mine < match.rounds && mine <= roundsDone(match, rival);
+}
 
 // ── Router ───────────────────────────────────────────────────────────────
 const routes = [
@@ -146,17 +162,18 @@ async function viewHome() {
 }
 
 function renderHome(me, matches) {
-  const done = matches.filter((m) => m.status === "complete");
-  const myMove = matches.filter((m) => m.status === "open" && !m.results[me]);
-  const waiting = matches.filter((m) => m.status === "open" && m.results[me]);
+  const done = matches.filter((m) => isComplete(m));
+  const myMove = matches.filter((m) => !isComplete(m) && canPlay(m, me));
+  const waiting = matches.filter((m) => !isComplete(m) && !canPlay(m, me));
 
   // Rivalry ledger: lifetime record per opponent
   const rivals = {};
   for (const m of done) {
     const rival = m.players.find((p) => p !== me) || me;
     const r = rivals[rival] || (rivals[rival] = { wins: 0, losses: 0, ties: 0 });
-    if (m.winner === "tie") r.ties++;
-    else if (m.winner === me) r.wins++;
+    const w = winnerOf(m);
+    if (w === "tie") r.ties++;
+    else if (w === me) r.wins++;
     else r.losses++;
   }
 
@@ -187,20 +204,24 @@ function renderHome(me, matches) {
       </a>`;
   };
 
+  const playBadge = (m) =>
+    `<span class="badge is-go">Play round ${roundsDone(m, me) + 1}</span>`;
+
+  const waitBadge = (m, rival) =>
+    `<span class="badge">${roundsDone(m, me) >= m.rounds ? "Sealed" : `Their round ${roundsDone(m, rival) + 1}`}</span>`;
+
   const finalBadge = (m, rival) => {
-    // Totals come from the shared DB (written by the other player's client):
-    // coerce to numbers before interpolating into HTML.
-    const mine = Number(m.results[m.players.find((p) => p === session.user)]?.total) || 0;
-    const theirs = Number(m.results[rival]?.total) || 0;
-    const cls = m.winner === "tie" ? "is-tie" : m.winner === session.user ? "is-win" : "is-loss";
-    const label = m.winner === "tie" ? "Tie" : m.winner === session.user ? "Won" : "Lost";
+    const mine = totalOf(m, me), theirs = totalOf(m, rival);
+    const w = winnerOf(m);
+    const cls = w === "tie" ? "is-tie" : w === me ? "is-win" : "is-loss";
+    const label = w === "tie" ? "Tie" : w === me ? "Won" : "Lost";
     return `<span class="badge ${cls}">${label} ${mine}–${theirs}</span>`;
   };
 
   return `
     ${rivalryHtml ? `<section class="section"><h2>Rivalries</h2>${rivalryHtml}</section>` : ""}
-    ${myMove.length ? `<section class="section"><h2>Your move</h2>${myMove.map((m) => card(m, () => `<span class="badge is-go">Play</span>`)).join("")}</section>` : ""}
-    ${waiting.length ? `<section class="section"><h2>Waiting on them</h2>${waiting.map((m) => card(m, () => `<span class="badge">Sent</span>`)).join("")}</section>` : ""}
+    ${myMove.length ? `<section class="section"><h2>Your move</h2>${myMove.map((m) => card(m, playBadge)).join("")}</section>` : ""}
+    ${waiting.length ? `<section class="section"><h2>Waiting on them</h2>${waiting.map((m) => card(m, waitBadge)).join("")}</section>` : ""}
     ${done.length ? `<section class="section"><h2>Finished games</h2>${done.slice(0, 20).map((m) => card(m, finalBadge)).join("")}</section>` : ""}
     ${!matches.length ? `<section class="section empty-state">
         <p>No matches yet. Start one and send your rival the word.</p>
@@ -226,23 +247,37 @@ function viewNew() {
         <input type="text" data-rival autocapitalize="none" maxlength="20"
                placeholder="their username" aria-label="Opponent username" required>
         <p class="hint">They log in with this exact name to play their side.</p>
-        <button type="submit" class="btn btn-primary">Deal the tiles</button>
+        <button type="submit" class="btn btn-primary" data-create>Deal the tiles</button>
       </form>
     </main>`);
 
   const form = app.querySelector("[data-form]");
+  const createBtn = form.querySelector("[data-create]");
+  let creating = false; // guards against double-taps creating duplicate matches
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (creating) return;
     const rival = normName(form.querySelector("[data-rival]").value);
     if (!rival) return;
     if (rival === me) { alert("You can't play yourself. That's called practice."); return; }
-    const gameId = form.querySelector("[name=game]:checked").value;
-    const game = getGame(gameId);
-    await store.ensureUser(rival);
-    const match = await store.createMatch({
-      gameId, players: [me, rival], createdBy: me, seed: randomSeed(), rounds: game.rounds,
-    });
-    location.hash = `#/match/${match.id}`;
+    creating = true;
+    createBtn.disabled = true;
+    createBtn.textContent = "Dealing…";
+    try {
+      const gameId = form.querySelector("[name=game]:checked").value;
+      const game = getGame(gameId);
+      await store.ensureUser(rival);
+      const match = await store.createMatch({
+        gameId, players: [me, rival], createdBy: me, seed: randomSeed(), rounds: game.rounds,
+      });
+      location.hash = `#/match/${match.id}`;
+    } catch (err) {
+      creating = false;
+      createBtn.disabled = false;
+      createBtn.textContent = "Deal the tiles";
+      alert(`Couldn't create the match (${err.message}). Try again.`);
+    }
   });
 }
 
@@ -258,18 +293,19 @@ async function viewMatch(id) {
   const rival = match.players.find((p) => p !== me);
   const game = getGame(match.gameId);
 
-  if (!match.results[me]) return playFlow(match, game, me, rival);
-  return postGame(match, game, me, rival);
+  if (isComplete(match)) return renderResults(match, game, me, rival);
+  if (canPlay(match, me)) return playFlow(match, game, me, rival);
+  return waitScreen(match, game, me, rival);
 }
 
-// ── Play flow: ready screen → N rounds with interludes → submit ─────────
+// ── Play flow: ready screen → round → save → next round or wait ─────────
 function playFlow(match, game, me, rival) {
   let destroyRound = null;
-  let dead = false; // set on navigation away; silences pending timeouts
-  const saved = progress.load(match.id);
+  let dead = false; // set on navigation away; silences pending async work
+  const myRounds = (match.results[me]?.rounds || []).slice();
 
   const ready = () => {
-    const resuming = saved.rounds.length > 0;
+    const next = myRounds.length + 1;
     setView(`
       <main class="page play-intro">
         <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
@@ -277,16 +313,18 @@ function playFlow(match, game, me, rival) {
         <ul class="rules">
           <li>${match.rounds} rounds, ${game.roundSeconds} seconds each.</li>
           <li>Same grids for both of you — same seed, same tiles.</li>
+          <li>Rounds move in lockstep: you both play round 1 before either of you starts round 2.</li>
           <li>3–4 letters = 1 pt · 5 = 2 · 6 = 3 · 7 = 5 · 8+ = 11.</li>
         </ul>
-        ${resuming ? `<p class="hint">Picking back up at round ${saved.rounds.length + 1}.</p>` : ""}
+        ${next > 1 ? `<p class="hint">Rounds 1–${next - 1} are banked. Up next: round ${next}.</p>` : ""}
         <button class="btn btn-primary" data-start disabled>Loading tiles…</button>
       </main>`);
     const btn = app.querySelector("[data-start]");
     game.prepare().then((assets) => {
+      if (dead) return;
       btn.disabled = false;
-      btn.textContent = resuming ? `Resume round ${saved.rounds.length + 1}` : "Start round 1";
-      btn.addEventListener("click", () => playRound(saved.rounds.length + 1, assets), { once: true });
+      btn.textContent = `Start round ${next}`;
+      btn.addEventListener("click", () => playRound(next, assets), { once: true });
     }).catch(() => { btn.textContent = "Couldn't load the word list — check your connection."; });
   };
 
@@ -296,77 +334,89 @@ function playFlow(match, game, me, rival) {
       seed: match.seed, round, totalRounds: match.rounds, assets,
       onDone: (result) => {
         destroyRound = null;
-        saved.rounds[round - 1] = result;
-        progress.save(match.id, saved);
-        round < match.rounds ? interlude(round, result, assets) : submit();
+        myRounds[round - 1] = result;
+        submitRound(round, result, assets);
       },
     });
   };
 
-  const interlude = (round, result, assets) => {
-    setTimeout(() => {
+  // Save this round to the shared store immediately, then either roll into
+  // the next round (rival already played this one) or hand off to the
+  // waiting screen via route().
+  const submitRound = async (round, result, assets) => {
+    if (dead) return;
+    setView(`<main class="page"><p class="loading">Banking round ${round}…</p></main>`);
+    const total = myRounds.reduce((sum, r) => sum + (Number(r?.score) || 0), 0);
+    try {
+      const updated = await store.submitResult(match.id, me, { rounds: myRounds, total });
       if (dead) return;
-      setView(`
-        <main class="page play-intro">
-          <p class="interlude-kicker">Round ${round} of ${match.rounds}</p>
-          <p class="interlude-score">${result.score}<i>pts</i></p>
-          <p class="hint">${result.words.length} word${result.words.length === 1 ? "" : "s"} banked. Shake it off.</p>
-          <button class="btn btn-primary" data-next>Start round ${round + 1}</button>
-        </main>`);
-      app.querySelector("[data-next]").addEventListener("click", () => playRound(round + 1, assets), { once: true });
-    }, 900);
+      if (round < match.rounds && canPlay(updated, me)) {
+        interlude(round, result, assets);
+      } else {
+        // Finished all my rounds, or I'm ahead of my rival: re-route so the
+        // results/waiting view gets registered with the router for cleanup.
+        route();
+      }
+    } catch (err) {
+      if (dead) return;
+      setView(`<main class="page"><p class="loading">Couldn't save round ${round} (${esc(err.message)}).</p>
+        <button class="btn btn-primary" data-retry>Try again</button></main>`);
+      app.querySelector("[data-retry]").addEventListener("click", () => submitRound(round, result, assets), { once: true });
+    }
   };
 
-  const submit = async () => {
-    setView(`<main class="page"><p class="loading">Locking in your score…</p></main>`);
-    const total = saved.rounds.reduce((sum, r) => sum + (r?.score || 0), 0);
-    try {
-      await store.submitResult(match.id, me, { rounds: saved.rounds, total }, finalizeMatch);
-      progress.clear(match.id);
-      // Re-route instead of rendering directly so the post-game view's
-      // subscription is registered with the router for cleanup.
-      route();
-    } catch (err) {
-      setView(`<main class="page"><p class="loading">Couldn't save (${esc(err.message)}).</p>
-        <button class="btn btn-primary" data-retry>Try again</button></main>`);
-      app.querySelector("[data-retry]").addEventListener("click", submit, { once: true });
-    }
+  const interlude = (round, result, assets) => {
+    setView(`
+      <main class="page play-intro">
+        <p class="interlude-kicker">Round ${round} of ${match.rounds}</p>
+        <p class="interlude-score">${Number(result.score) || 0}<i>pts</i></p>
+        <p class="hint">${esc(rival)} already played round ${round} — no waiting. Shake it off.</p>
+        <button class="btn btn-primary" data-next>Start round ${round + 1}</button>
+      </main>`);
+    app.querySelector("[data-next]").addEventListener("click", () => playRound(round + 1, assets), { once: true });
   };
 
   ready();
   return () => { dead = true; destroyRound?.(); };
 }
 
-// ── After I've played: waiting room, or full results ────────────────────
-function postGame(match, game, me, rival) {
-  if (match.status !== "complete") {
-    setView(`
-      <main class="page play-intro">
-        <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
-        <p class="interlude-kicker">You scored</p>
-        <p class="interlude-score">${Number(match.results[me].total) || 0}<i>pts</i></p>
-        <p class="hint">Now it's ${esc(rival)}'s move. Results stay sealed until they play —
-        go tell them the tiles are waiting.</p>
-      </main>`);
-    // Flip to results live the moment the rival finishes.
-    const unsub = store.subscribeMatch(match.id, (m) => {
-      if (m?.status === "complete") { unsub(); renderResults(m, game, me, rival); }
-    });
-    return unsub;
-  }
-  renderResults(match, game, me, rival);
+// ── Waiting: I'm ahead of my rival (mid-match) or done entirely ─────────
+function waitScreen(match, game, me, rival) {
+  const mine = roundsDone(match, me);
+  const finishedAll = mine >= match.rounds;
+  const theirNext = roundsDone(match, rival) + 1;
+
+  setView(`
+    <main class="page play-intro">
+      <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
+      <p class="interlude-kicker">${finishedAll ? "You scored" : `Round ${mine} banked — you have`}</p>
+      <p class="interlude-score">${totalOf(match, me)}<i>pts</i></p>
+      ${finishedAll
+        ? `<p class="hint">That's all your rounds. Results stay sealed until ${esc(rival)}
+             finishes — go tell them the tiles are waiting.</p>`
+        : `<p class="hint">Rounds move in lockstep: round ${mine + 1} unlocks once ${esc(rival)}
+             plays round ${theirNext}. This screen updates on its own — or come back later.</p>`}
+    </main>`);
+
+  // Live: the moment the rival catches up (or finishes), re-route to the
+  // ready screen / results.
+  const unsub = store.subscribeMatch(match.id, (m) => {
+    if (m && (isComplete(m) || canPlay(m, me))) { unsub(); route(); }
+  });
+  return unsub;
 }
 
 async function renderResults(match, game, me, rival) {
-  const mine = Number(match.results[me]?.total) || 0;
-  const theirs = Number(match.results[rival]?.total) || 0;
-  const verdict = match.winner === "tie" ? "Dead tie." : match.winner === me ? "You take it." : `${esc(rival)} takes it.`;
+  const mine = totalOf(match, me);
+  const theirs = totalOf(match, rival);
+  const winner = winnerOf(match);
+  const verdict = winner === "tie" ? "Dead tie." : winner === me ? "You take it." : `${esc(rival)} takes it.`;
   const pct = mine + theirs ? (mine / (mine + theirs)) * 100 : 50;
 
   setView(`
     <main class="page results">
       <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
-      <p class="verdict ${match.winner === me ? "is-win" : match.winner === "tie" ? "" : "is-loss"}">${verdict}</p>
+      <p class="verdict ${winner === me ? "is-win" : winner === "tie" ? "" : "is-loss"}">${verdict}</p>
       <div class="scoreline">
         <div class="scoreline-side is-me"><b>${mine}</b><span>${esc(me)}</span></div>
         <div class="scoreline-side is-rival"><b>${theirs}</b><span>${esc(rival)}</span></div>
@@ -377,5 +427,6 @@ async function renderResults(match, game, me, rival) {
     </main>`);
 
   const assets = await game.prepare();
-  game.renderResults(app.querySelector("[data-detail]"), { match, me, rival, assets });
+  const detail = app.querySelector("[data-detail]");
+  if (detail) game.renderResults(detail, { match, me, rival, assets });
 }

@@ -55,12 +55,11 @@ export function createLocalStore() {
       return load().matches[id] || null;
     },
 
-    async submitResult(matchId, player, result, finalize) {
+    async submitResult(matchId, player, result) {
       const db = load();
       const match = db.matches[matchId];
       if (!match) throw new Error("Match not found");
       match.results[player] = { ...result, submittedAt: Date.now() };
-      Object.assign(match, finalize(match));
       save(db);
       notify();
       return match;

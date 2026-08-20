@@ -3,7 +3,8 @@
 //
 // mountRound(container, opts) -> destroy()
 //   opts: { grid, roundNum, totalRounds, durationSec, dictionary, onDone }
-//   onDone({ score, words: [[word, score], ...] })
+//   onDone({ score, words: {word: score, ...} })
+//   (words is a plain object, not entries — Firestore rejects nested arrays)
 
 import { SIZE, isAdjacent, wordScore, pathToWord } from "./engine.js";
 
@@ -69,7 +70,7 @@ export function mountRound(container, opts) {
     clearInterval(timer);
     clearPath();
     boardEl.classList.add("is-done");
-    onDone({ score, words: [...found.entries()] });
+    onDone({ score, words: Object.fromEntries(found) });
   }
 
   // ── Tracing ────────────────────────────────────────────────────────────

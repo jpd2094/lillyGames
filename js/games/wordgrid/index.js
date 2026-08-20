@@ -17,7 +17,7 @@ export default {
   name: "Word Grid",
   tagline: "Trace words in the tiles. Longer is better.",
   rounds: 3,
-  roundSeconds: 90,
+  roundSeconds: 60,
 
   async prepare() {
     return { dictionary: await loadDictionary() };
@@ -43,8 +43,8 @@ export default {
 
     for (let r = 1; r <= match.rounds; r++) {
       const grid = gridForRound(match.seed, r);
-      const myWords = new Map(mine?.rounds?.[r - 1]?.words || []);
-      const theirWords = new Map(theirs?.rounds?.[r - 1]?.words || []);
+      const myWords = wordsMap(mine?.rounds?.[r - 1]?.words);
+      const theirWords = wordsMap(theirs?.rounds?.[r - 1]?.words);
       const everyone = new Set([...myWords.keys(), ...theirWords.keys()]);
       const missed = solveGrid(grid, assets.dictionary)
         .filter((w) => !everyone.has(w))
@@ -72,6 +72,12 @@ export default {
     container.innerHTML = html.join("");
   },
 };
+
+// words are stored as {word: score} (Firestore can't nest arrays); older
+// local-mode matches stored [[word, score]] pairs — accept both.
+function wordsMap(v) {
+  return new Map(Array.isArray(v) ? v : Object.entries(v || {}));
+}
 
 function wordList(words, otherWords) {
   if (!words.size) return `<p class="result-none">no words</p>`;

@@ -46,13 +46,14 @@ export async function createFirebaseStore(firebaseConfig) {
       return snap.exists() ? snap.data() : null;
     },
 
-    async submitResult(matchId, player, result, finalize) {
-      const match = await this.getMatch(matchId);
-      if (!match) throw new Error("Match not found");
-      match.results[player] = { ...result, submittedAt: Date.now() };
-      Object.assign(match, finalize(match));
-      await fs.setDoc(matchRef(matchId), match);
-      return match;
+    async submitResult(matchId, player, result) {
+      // Field-path update: each player only ever writes results.<own name>,
+      // so simultaneous submissions from both players can't clobber each
+      // other. (Usernames are normalized to [a-z0-9_-], so no dots in paths.)
+      await fs.updateDoc(matchRef(matchId), {
+        [`results.${player}`]: { ...result, submittedAt: Date.now() },
+      });
+      return this.getMatch(matchId);
     },
 
     async listMatchesFor(name) {

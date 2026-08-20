@@ -2,8 +2,10 @@
 
 A tiny head-to-head gaming platform for two friends: pick a username, challenge
 your rival, and keep a lifetime rivalry score. First game: **Word Grid** — trace
-words through a 4×4 letter grid, 3 rounds per match, both players get the exact
-same grids.
+words through a 4×4 letter grid, 3 rounds × 60 seconds per match, both players
+get the exact same grids. Rounds move in lockstep: each round is saved the
+moment you finish it, and round N+1 unlocks only once both players have played
+round N (whoever finishes a round second rolls straight into the next one).
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -107,6 +109,7 @@ js/games/wordgrid/    first game
 
 ## Known limitations (accepted for v1)
 
-- Refreshing **mid-round** restarts that round (completed rounds are kept).
+- Refreshing **mid-round** restarts that round (finished rounds are already
+  saved to the store, so they're never lost — even across devices).
 - Scores are computed client-side and trusted — fine between friends.
 - Demo mode is single-device by design.
