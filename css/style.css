@@ -677,6 +677,17 @@ a.rivalry { display: block; color: inherit; text-decoration: none; }
 }
 .cp-table canvas { display: block; }
 
+/* ── Mini Golf ── */
+.mg-course {
+  position: relative;
+  width: 100%;
+  height: min(64dvh, 560px);
+  touch-action: none; /* the course owns the putt gesture */
+  border-radius: 10px;
+  overflow: hidden;
+}
+.mg-course canvas { display: block; }
+
 /* ── Wordle Duel ── */
 .wd-board { display: grid; gap: 5px; justify-content: center; margin: 4px 0 14px; }
 .wd-row { display: grid; grid-template-columns: repeat(5, 52px); gap: 5px; }

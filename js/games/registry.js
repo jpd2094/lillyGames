@@ -9,8 +9,9 @@ import scrabble from "./scrabble/index.js";
 import sudoku from "./sudoku/index.js";
 import wordle from "./wordle/index.js";
 import cuppong from "./cuppong/index.js";
+import minigolf from "./minigolf/index.js";
 
-export const GAMES = [wordgrid, anagrams, blackjack, scrabble, sudoku, wordle, cuppong];
+export const GAMES = [wordgrid, anagrams, blackjack, scrabble, sudoku, wordle, cuppong, minigolf];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;

@@ -6,7 +6,7 @@ exact same puzzles, and rounds move in lockstep: each round is saved the moment
 you finish it, and round N+1 unlocks only once both players have played round N
 (whoever finishes a round second rolls straight into the next one).
 
-Three games so far:
+Eight games so far:
 
 - **Word Grid** — trace words through a 4×4 letter grid, 3 rounds × 60 seconds.
 - **Anagrams** — build words from a rack of 8 shuffled letters, 3 rounds × 60 seconds.
@@ -27,6 +27,9 @@ Three games so far:
   round costs seven.
 - **Cup Pong** — GamePigeon-style: flick the ball at an identical 10-cup rack,
   pure skill, no randomness. Fewest throws to clear it wins; time breaks ties.
+- **Mini Golf** — three hand-built holes (walls bounce, sand slows, water
+  penalizes, hot balls lip out), each proven finishable under par by the
+  engine's solver in tests. Fewest strokes wins; time breaks ties.
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -251,6 +254,10 @@ js/games/cuppong/     seventh game
   engine.js           rack geometry, swipe-to-landing mapping, hits (pure)
   ui.js               canvas table: fake-3D cups, ball flight, flick input
   index.js            the game-plugin definition + throw/accuracy results
+js/games/minigolf/    eighth game
+  engine.js           course data, deterministic shot simulator, test solver (pure)
+  ui.js               flat top-down canvas, pull-back putting, hole flow
+  index.js            the game-plugin definition + scorecard results
 ```
 
 ## Running the tests
