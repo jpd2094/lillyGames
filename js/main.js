@@ -24,7 +24,7 @@ let cleanup = null; // per-view teardown (unsubscribes, timers)
 // an out-of-date cached client (GitHub Pages caches JS for ~10 min after a
 // deploy) refuses to play a match it doesn't understand instead of corrupting
 // it or silently failing to save.
-const SCHEMA = 3;
+const SCHEMA = 4;
 
 // ── Session ──────────────────────────────────────────────────────────────
 const session = {
@@ -80,7 +80,15 @@ function winnerOf(match) {
   if (!isComplete(match)) return null;
   const [a, b] = match.players;
   const ta = totalOf(match, a), tb = totalOf(match, b);
-  return ta === tb ? "tie" : ta > tb ? a : b;
+  if (ta === tb) return "tie";
+  // races compare times: lowest wins (game declares lowerWins)
+  const lower = getGame(match.gameId)?.lowerWins;
+  return (lower ? ta < tb : ta > tb) ? a : b;
+}
+
+// Totals render as points unless the game formats them (e.g. times)
+function scoreLabel(game, total) {
+  return game?.formatScore ? game.formatScore(total) : String(total);
 }
 
 // Lockstep rule: I may play round N+1 only if my opponent has finished at
@@ -370,7 +378,8 @@ function renderHome(me, matches) {
   };
 
   const finalBadge = (m, rival) => {
-    const mine = totalOf(m, me), theirs = totalOf(m, rival);
+    const game = getGame(m.gameId);
+    const mine = scoreLabel(game, totalOf(m, me)), theirs = scoreLabel(game, totalOf(m, rival));
     const w = winnerOf(m);
     const cls = w === "tie" ? "is-tie" : w === me ? "is-win" : "is-loss";
     const label = w === "tie" ? "Tie" : w === me ? "Won" : "Lost";
@@ -402,6 +411,7 @@ function viewNew() {
               <em>${esc(g.pitch || `${g.rounds} rounds · ${g.roundSeconds}s each`)}</em></span>
             </label>`).join("")}
         </div>
+        <div data-variants></div>
         <h2>Rival</h2>
         <div class="rival-chips" data-rivals hidden></div>
         <input type="text" data-rival autocapitalize="none" maxlength="20"
@@ -415,6 +425,23 @@ function viewNew() {
   const createBtn = form.querySelector("[data-create]");
   const rivalInput = form.querySelector("[data-rival]");
   let creating = false; // guards against double-taps creating duplicate matches
+
+  // Per-match options (e.g. sudoku difficulty): shown for games that
+  // declare `variants`, refreshed when the game selection changes.
+  const variantsEl = form.querySelector("[data-variants]");
+  const renderVariants = () => {
+    const game = getGame(form.querySelector("[name=game]:checked").value);
+    variantsEl.innerHTML = !game?.variants ? "" : `
+      <div class="variant-pick">
+        ${game.variants.map((v, i) => `
+          <label class="variant-option">
+            <input type="radio" name="variant" value="${esc(v.id)}" ${i === 0 ? "checked" : ""}>
+            <span>${esc(v.name)}</span>
+          </label>`).join("")}
+      </div>`;
+  };
+  renderVariants();
+  form.querySelectorAll("[name=game]").forEach((r) => r.addEventListener("change", renderVariants));
 
   // Rivals list: everyone you've ever played, freshest match first, derived
   // from match history (no separate friends storage to keep in sync). Tap a
@@ -457,8 +484,10 @@ function viewNew() {
       } else {
         await store.ensureUser(rival);
       }
+      const variant = form.querySelector("[name=variant]:checked")?.value;
       const match = await store.createMatch({
         gameId, players: [me, rival], createdBy: me, seed: randomSeed(), rounds: game.rounds, v: SCHEMA,
+        ...(variant ? { variant } : {}),
       });
       location.hash = `#/match/${match.id}`;
     } catch (err) {
@@ -533,7 +562,7 @@ function playFlow(match, game, me, rival) {
     setView(`<main class="page page-round" data-round-host></main>`);
     destroyRound = game.mountRound(app.querySelector("[data-round-host]"), {
       seed: match.seed, round, totalRounds: match.rounds, assets,
-      me, players: match.players, results: match.results,
+      me, players: match.players, results: match.results, variant: match.variant,
       // Live hooks (optional for games): publish my mid-round progress under
       // my own results entry, and watch the rival's entry as they play.
       reportProgress: (progress) => {
@@ -607,8 +636,8 @@ function waitScreen(match, game, me, rival) {
   setView(`
     <main class="page play-intro">
       <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
-      <p class="interlude-kicker">${finishedAll ? "You scored" : `Round ${mine} banked — you have`}</p>
-      <p class="interlude-score">${totalOf(match, me)}<i>pts</i></p>
+      <p class="interlude-kicker">${finishedAll ? (game.lowerWins ? "Your time" : "You scored") : `Round ${mine} banked — you have`}</p>
+      <p class="interlude-score">${scoreLabel(game, totalOf(match, me))}${game.formatScore ? "" : "<i>pts</i>"}</p>
       ${finishedAll
         ? `<p class="hint">That's all your rounds. Results stay sealed until ${esc(rival)}
              finishes — go tell them the tiles are waiting.</p>`
@@ -659,15 +688,17 @@ async function renderResults(match, game, me, rival) {
   const theirs = totalOf(match, rival);
   const winner = winnerOf(match);
   const verdict = winner === "tie" ? "Dead tie." : winner === me ? "You take it." : `${esc(rival)} takes it.`;
-  const pct = mine + theirs ? (mine / (mine + theirs)) * 100 : 50;
+  // the tug bar always shows "how much of the win is mine" — for races
+  // (lowerWins) the smaller number is the better one
+  const pct = mine + theirs ? ((game?.lowerWins ? theirs : mine) / (mine + theirs)) * 100 : 50;
 
   setView(`
     <main class="page results">
       <header class="page-head"><a class="back" href="#/">&larr;</a><h1>${esc(game.name)}</h1></header>
       <p class="verdict ${winner === me ? "is-win" : winner === "tie" ? "" : "is-loss"}">${verdict}</p>
       <div class="scoreline">
-        <div class="scoreline-side is-me"><b>${mine}</b><span>${esc(me)}</span></div>
-        <div class="scoreline-side is-rival"><b>${theirs}</b><span>${esc(rival)}</span></div>
+        <div class="scoreline-side is-me"><b>${scoreLabel(game, mine)}</b><span>${esc(me)}</span></div>
+        <div class="scoreline-side is-rival"><b>${scoreLabel(game, theirs)}</b><span>${esc(rival)}</span></div>
       </div>
       <div class="tug"><div class="tug-me" style="width:${pct}%"></div></div>
       <div data-detail><p class="loading">Reading the boards…</p></div>

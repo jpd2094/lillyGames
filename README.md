@@ -19,6 +19,9 @@ Three games so far:
   player stores only their own move list; both clients derive the shared board
   from the interleaved lists, so it fits the per-player storage rules and a
   refresh loses nothing.
+- **Sudoku Race** — the same generated puzzle (unique solution, easy/medium/
+  hard picked per match) for both players; the clock counts up from your first
+  look and never pauses, and the lowest clean-finish time takes the match.
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -160,6 +163,11 @@ default-exports:
   rules,                    // optional: ready-screen bullet strings
   status(match, me),        // optional (live-turn games): {yourTurn, label}
                             //   drives the home-screen sections and badges
+  variants,                 // optional: per-match options [{id, name}] shown
+                            //   on the New match screen; stored as match.variant
+                            //   and passed to mountRound
+  lowerWins,                // optional: winner has the LOWEST total (races)
+  formatScore(total),       // optional: how totals render (e.g. times "3:12")
   async prepare(),          // load assets once (dictionary, sprites…) → assets
   mountRound(el, { seed, round, totalRounds, assets, onDone,
                    me, players, results,          // identity + current entries
@@ -219,6 +227,10 @@ js/games/scrabble/    fourth game — live turn-based
                       scoring, full state derived from both move lists (pure)
   ui.js               board UI: tap-to-place, blanks, swap/pass/play, live turns
   index.js            the game-plugin definition + final board and turn ledger
+js/games/sudoku/      fifth game — a race
+  engine.js           seeded unique-solution puzzle generation, conflicts (pure)
+  ui.js               grid + number pad, wall-clock timer, live fill ticker
+  index.js            the game-plugin definition + times and solution view
 ```
 
 ## Running the tests
@@ -227,6 +239,7 @@ The pure game engines have node-runnable tests (no framework, no deps):
 
 ```bash
 node tests/scrabble-engine.test.mjs
+node tests/sudoku-engine.test.mjs
 ```
 
 ## Known limitations (accepted for v1)

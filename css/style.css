@@ -526,6 +526,68 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .sc-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
 .sc-pick { aspect-ratio: 1; font-size: 0.95rem; border-radius: 6px; }
 .sc-pick-cancel { width: 100%; margin-top: 8px; padding: 8px; font-size: 0.85rem; }
+/* ── Sudoku Race ── */
+.variant-pick { display: flex; gap: 8px; margin: 10px 0 4px; }
+.variant-option { flex: 1; }
+.variant-option input { position: absolute; opacity: 0; }
+.variant-option span {
+  display: block;
+  text-align: center;
+  padding: 9px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--felt-raise);
+  font-size: 0.9rem;
+}
+.variant-option input:checked + span { border-color: var(--gold); color: var(--gold); }
+.variant-option input:focus-visible + span { outline: 3px solid var(--gold); outline-offset: 2px; }
+.su-clock { font-family: var(--display); font-size: 1.4rem; color: var(--gold); }
+.su-fill { color: var(--muted); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.su-rival {
+  margin: 4px 0 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--felt-raise);
+  border: 1px solid var(--line);
+  color: var(--coral);
+  font-size: 0.85rem;
+  text-align: center;
+}
+.su-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  background: var(--line);
+  gap: 1px;
+  border: 2px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.su-cell {
+  aspect-ratio: 1;
+  display: grid; place-items: center;
+  background: var(--felt-raise);
+  border: 0; padding: 0;
+  font-size: clamp(0.95rem, 4.2vw, 1.25rem);
+  font-weight: 600;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+/* heavier lines between the 3x3 boxes */
+.su-grid .su-cell:nth-child(9n + 4), .su-grid .su-cell:nth-child(9n + 7) { border-left: 2px solid var(--line); }
+.su-grid .su-cell:nth-child(n + 28):nth-child(-n + 36),
+.su-grid .su-cell:nth-child(n + 55):nth-child(-n + 63) { border-top: 2px solid var(--line); }
+.su-cell.is-given { color: inherit; font-weight: 700; }
+.su-cell.is-selected { background: rgba(245, 197, 66, 0.28); }
+.su-cell.is-same { background: rgba(245, 197, 66, 0.12); }
+.su-cell.is-bad { color: var(--coral); background: rgba(255, 110, 94, 0.18); }
+.su-pad { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 12px; }
+.su-pad .su-key { padding: 12px 0; font-size: 1rem; }
+.su-time { font-family: var(--display); font-size: 1.8rem; }
+.su-grid-mini { max-width: 300px; margin: 14px auto 0; }
+.su-grid-mini .su-cell { font-size: 0.7rem; }
+
 .sc-board-mini { max-width: 340px; margin: 0 auto 14px; }
 .sc-board-mini .sc-cell { border-radius: 1px; font-size: 0; }
 .sc-board-mini .sc-cell.sc-tile { font-size: 0.6rem; }
