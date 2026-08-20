@@ -133,6 +133,14 @@ export async function createFirebaseStore(firebaseConfig, authProvider = "") {
       await fs.enableNetwork(db);
     },
 
+    // Presence heartbeat: "I have this match's round open right now".
+    // A timestamp under my own results entry; 0 clears it on clean exit.
+    async submitPresence(matchId, player, ts) {
+      await fs.updateDoc(matchRef(matchId), {
+        [`results.${player}.presence`]: ts,
+      });
+    },
+
     // Transient mid-round progress (live rival ticker). Same field-path
     // discipline as submitResult: only ever touches results.<own name>, so
     // it stays legal under the locked-down rules.

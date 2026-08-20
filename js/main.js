@@ -99,6 +99,14 @@ function canPlay(match, me) {
   return mine < match.rounds && mine <= roundsDone(match, rival);
 }
 
+// Presence: a player with a round mounted heartbeats a timestamp every 25s;
+// fresher than 70s (two missed beats' grace) counts as "in there right now".
+const PRESENCE_FRESH_MS = 70_000;
+
+function isLiveNow(match, player) {
+  return Number(match.results?.[player]?.presence) > Date.now() - PRESENCE_FRESH_MS;
+}
+
 // ── Router ───────────────────────────────────────────────────────────────
 const routes = [
   { re: /^#?\/?$/, view: viewHome },
@@ -307,10 +315,16 @@ async function viewHome() {
   });
 
   const content = app.querySelector("[data-content]");
+  let lastMatches = null;
   const unsub = store.subscribeMatchesFor(me, (matches) => {
+    lastMatches = matches;
     content.innerHTML = renderHome(me, matches);
   });
-  return unsub;
+  // presence indicators go stale by clock, not by data — refresh periodically
+  const staleness = setInterval(() => {
+    if (lastMatches && content.isConnected) content.innerHTML = renderHome(me, lastMatches);
+  }, 30_000);
+  return () => { unsub(); clearInterval(staleness); };
 }
 
 function renderHome(me, matches) {
@@ -357,12 +371,14 @@ function renderHome(me, matches) {
   const card = (m, badge) => {
     const rival = m.players.find((p) => p !== me) || me;
     const game = getGame(m.gameId);
+    const live = !isComplete(m) && isLiveNow(m, rival);
     return `
-      <a class="match-card" href="#/match/${m.id}">
+      <a class="match-card${live ? " is-live" : ""}" href="#/match/${m.id}">
         <span class="match-game">${esc(game ? game.name : m.gameId)}</span>
         <span class="match-vs">vs ${esc(rival)}</span>
         <span class="match-date">${fmtDate(m.createdAt)}</span>
         ${badge(m, rival)}
+        ${live ? `<span class="match-live">●&nbsp;${esc(rival)} is in there right now</span>` : ""}
       </a>`;
   };
 
@@ -530,6 +546,21 @@ function playFlow(match, game, me, rival) {
   const liveUnsubs = []; // rival subscriptions opened for the current round
   const dropLive = () => { liveUnsubs.splice(0).forEach((u) => u()); };
 
+  // Presence heartbeat while a round is mounted, so the rival's home screen
+  // can show "they're in there right now". Cleared on the way out.
+  let presenceTimer = null;
+  const startPresence = () => {
+    stopPresence(false);
+    const beat = () => { if (!dead) store.submitPresence(match.id, me, Date.now()).catch(() => {}); };
+    beat();
+    presenceTimer = setInterval(beat, 25_000);
+  };
+  function stopPresence(clear) {
+    if (presenceTimer) clearInterval(presenceTimer);
+    presenceTimer = null;
+    if (clear) store.submitPresence(match.id, me, 0).catch(() => {});
+  }
+
   const ready = () => {
     const next = myRounds.length + 1;
     setView(`
@@ -560,6 +591,7 @@ function playFlow(match, game, me, rival) {
 
   const playRound = (round, assets) => {
     setView(`<main class="page page-round" data-round-host></main>`);
+    startPresence();
     destroyRound = game.mountRound(app.querySelector("[data-round-host]"), {
       seed: match.seed, round, totalRounds: match.rounds, assets,
       me, players: match.players, results: match.results, variant: match.variant,
@@ -580,6 +612,7 @@ function playFlow(match, game, me, rival) {
       onDone: (result) => {
         destroyRound = null;
         dropLive();
+        stopPresence(false); // submitResult replaces my entry, presence included
         myRounds[round - 1] = result;
         submitRound(round, result, assets);
       },
@@ -624,7 +657,13 @@ function playFlow(match, game, me, rival) {
   };
 
   ready();
-  return () => { dead = true; destroyRound?.(); dropLive(); };
+  return () => {
+    const leaving = Boolean(presenceTimer);
+    dead = true;
+    destroyRound?.();
+    dropLive();
+    stopPresence(leaving);
+  };
 }
 
 // ── Waiting: I'm ahead of my rival (mid-match) or done entirely ─────────
@@ -656,11 +695,15 @@ function waitScreen(match, game, me, rival) {
   const consider = (m) => {
     if (advanced || !m) return;
     // Live peek while waiting: if the rival is mid-round and their game
-    // publishes progress (Blackjack Duel's ticker), narrate it here too.
+    // publishes progress (Blackjack Duel's ticker), narrate it here too;
+    // otherwise the presence heartbeat at least says they're in there.
     const p = m.results?.[rival]?.progress;
     if (liveEl && p && typeof p.played === "number") {
       const stale = Number(p.at) && Date.now() - Number(p.at) > 10 * 60_000;
       liveEl.textContent = `${rival} ${stale ? "paused at" : "is playing —"} hand ${Number(p.played) || 0} · ${Number(p.chips) || 0} chips`;
+    } else if (liveEl) {
+      liveEl.textContent = isLiveNow(m, rival) ? `● ${rival} is in there right now` : "";
+      liveEl.classList.toggle("is-live-note", isLiveNow(m, rival));
     }
     if (!(isComplete(m) || canPlay(m, me))) return;
     advanced = true;

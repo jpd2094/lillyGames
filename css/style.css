@@ -193,6 +193,16 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
   background: rgba(0, 0, 0, 0.28); color: var(--muted);
 }
 .badge.is-go { background: var(--gold); color: var(--tile-ink); }
+.match-card.is-live { border-color: rgba(127, 216, 164, 0.55); }
+.match-live {
+  grid-column: 1 / -1;
+  color: var(--mint);
+  font-size: 0.75rem;
+  font-weight: 600;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+.hint.is-live-note { color: var(--mint); animation: live-pulse 2s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: 0.55; } }
 .badge.is-win { background: rgba(127, 216, 164, 0.18); color: var(--mint); }
 .badge.is-loss { background: rgba(255, 110, 94, 0.16); color: var(--coral); }
 .badge.is-tie { background: rgba(245, 197, 66, 0.15); color: var(--gold); }

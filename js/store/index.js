@@ -6,6 +6,7 @@
 //   ensureUser(name)                          -> user
 //   createMatch({gameId, players, createdBy, seed, rounds}) -> match
 //   getMatch(id)                              -> match | null
+//   submitPresence(matchId, player, ts)       -> void (heartbeat, 0 clears)
 //   submitProgress(matchId, player, progress) -> void (transient, live ticker)
 //   submitResult(matchId, player, result, finalize) -> match
 //   listMatchesFor(name)                      -> match[]
