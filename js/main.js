@@ -493,6 +493,7 @@ function playFlow(match, game, me, rival) {
         <p class="interlude-score">${Number(result.score) || 0}<i>pts</i></p>
         <p class="hint">${esc(rival)} already played round ${round} — no waiting. Shake it off.</p>
         <button class="btn btn-primary" data-next>Start round ${round + 1}</button>
+        <p class="hint"><a class="quiet-link" href="#/">Back to home — round ${round + 1} will wait for you</a></p>
       </main>`);
     app.querySelector("[data-next]").addEventListener("click", () => playRound(round + 1, assets), { once: true });
   };
