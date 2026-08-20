@@ -15,6 +15,12 @@ const app = document.getElementById("app");
 let store = null;
 let cleanup = null; // per-view teardown (unsubscribes, timers)
 
+// Bumped whenever the match data format changes. Stamped onto new matches so
+// an out-of-date cached client (GitHub Pages caches JS for ~10 min after a
+// deploy) refuses to play a match it doesn't understand instead of corrupting
+// it or silently failing to save.
+const SCHEMA = 2;
+
 // ── Session ──────────────────────────────────────────────────────────────
 const session = {
   get user() { return localStorage.getItem("lilly.user"); },
@@ -104,6 +110,15 @@ async function route() {
 
 window.addEventListener("hashchange", route);
 route();
+
+// Coming back to the app after it was backgrounded: rebuild the home screen
+// so match states are fresh even if the live connection was dropped while
+// the phone slept. (Match views handle their own wake-up checks; forms and
+// active rounds are left alone.)
+document.addEventListener("visibilitychange", () => {
+  const hash = location.hash || "#/";
+  if (!document.hidden && (hash === "#/" || hash === "#")) route();
+});
 
 // Warm caches in the background so the first round starts instantly.
 setTimeout(() => GAMES.forEach((g) => g.prepare().catch(() => {})), 500);
@@ -269,7 +284,7 @@ function viewNew() {
       const game = getGame(gameId);
       await store.ensureUser(rival);
       const match = await store.createMatch({
-        gameId, players: [me, rival], createdBy: me, seed: randomSeed(), rounds: game.rounds,
+        gameId, players: [me, rival], createdBy: me, seed: randomSeed(), rounds: game.rounds, v: SCHEMA,
       });
       location.hash = `#/match/${match.id}`;
     } catch (err) {
@@ -287,6 +302,12 @@ async function viewMatch(id) {
   if (!match) { setView(`<main class="page"><p class="loading">Match not found.</p><a class="btn" href="#/">Home</a></main>`); return; }
   if (!match.players.includes(me)) {
     setView(`<main class="page"><p class="loading">This match is between ${esc(match.players.join(" and "))}.</p><a class="btn" href="#/">Home</a></main>`);
+    return;
+  }
+  if ((Number(match.v) || 1) > SCHEMA) {
+    setView(`<main class="page"><p class="loading">This match needs a newer version of Lilly Games than
+      this device has. Close every Lilly Games tab and reopen — updates can take ~10 minutes to arrive.</p>
+      <a class="btn" href="#/">Home</a></main>`);
     return;
   }
 
@@ -398,12 +419,31 @@ function waitScreen(match, game, me, rival) {
              plays round ${theirNext}. This screen updates on its own — or come back later.</p>`}
     </main>`);
 
-  // Live: the moment the rival catches up (or finishes), re-route to the
-  // ready screen / results.
-  const unsub = store.subscribeMatch(match.id, (m) => {
-    if (m && (isComplete(m) || canPlay(m, me))) { unsub(); route(); }
-  });
-  return unsub;
+  // Unlock the moment the rival catches up (or finishes). Belt and braces:
+  // the live subscription is the fast path, but mobile browsers silently
+  // drop live connections when the phone sleeps — so also poll, and check
+  // immediately whenever the app returns to the foreground.
+  let advanced = false;
+  const consider = (m) => {
+    if (advanced || !m || !(isComplete(m) || canPlay(m, me))) return;
+    advanced = true;
+    teardown();
+    route();
+  };
+  const check = () => store.getMatch(match.id).then(consider).catch(() => {});
+  const unsub = store.subscribeMatch(match.id, consider);
+  const poll = setInterval(check, 10_000);
+  const onWake = () => { if (!document.hidden) check(); };
+  document.addEventListener("visibilitychange", onWake);
+  window.addEventListener("focus", onWake);
+
+  function teardown() {
+    unsub();
+    clearInterval(poll);
+    document.removeEventListener("visibilitychange", onWake);
+    window.removeEventListener("focus", onWake);
+  }
+  return () => { advanced = true; teardown(); };
 }
 
 async function renderResults(match, game, me, rival) {
