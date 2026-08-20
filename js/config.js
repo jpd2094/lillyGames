@@ -19,4 +19,4 @@ export const USE_FIREBASE = Boolean(firebaseConfig.apiKey);
 // "google". Flip this ONLY after (1) the provider is enabled in the Firebase
 // console and (2) the locked-down Firestore rules from the README are
 // published — flipping early locks everyone out.
-export const AUTH_PROVIDER = "";
+export const AUTH_PROVIDER = "apple";
