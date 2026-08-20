@@ -14,6 +14,11 @@ Three games so far:
   players, so only the decisions differ. A live ticker shows the rival's hand
   count and chip stack while you play, and the duel checkpoints itself so a
   refresh resumes instead of replaying cards you've already seen.
+- **Scrabble** — the real thing, live and turn-based: official board, tiles,
+  premium squares, blanks, bingos, exchanges, and endgame rack math. Each
+  player stores only their own move list; both clients derive the shared board
+  from the interleaved lists, so it fits the per-player storage rules and a
+  refresh loses nothing.
 
 No build step, no framework — plain ES modules, hostable on any static host
 (built for GitHub Pages).
@@ -155,6 +160,7 @@ default-exports:
   rules,                    // optional: ready-screen bullet strings
   async prepare(),          // load assets once (dictionary, sprites…) → assets
   mountRound(el, { seed, round, totalRounds, assets, onDone,
+                   me, players, results,          // identity + current entries
                    reportProgress, onRivalUpdate }) → destroy(),
                             // play ONE round; call onDone({ score, words?/detail? })
   renderResults(el, { match, me, rival, assets }),  // game-specific breakdown
@@ -164,9 +170,11 @@ default-exports:
 Live hooks (optional — for games where watching the rival mid-round matters,
 like Blackjack Duel's ticker): `reportProgress(obj)` publishes transient
 progress under your own `results` entry via `store.submitProgress`, and
-`onRivalUpdate(cb)` subscribes `cb` to the rival's results entry (progress
-included) for the duration of the round. The platform tears the subscription
-down when the round ends; games that ignore both hooks work unchanged.
+`onRivalUpdate(cb)` subscribes `cb(rivalEntry, match)` to match changes for
+the duration of the round — the full match rides along so a game can also
+notice its own entry changing from another device (scrabble uses this). The
+platform tears the subscription down when the round ends; games that ignore
+both hooks work unchanged.
 
 Rules of the contract:
 
@@ -204,9 +212,26 @@ js/games/blackjack/   third game
                       dealer play, settlement (pure)
   ui.js               duel UI: actions, per-hand settling, live rival ticker
   index.js            the game-plugin definition + hand-by-hand ledger
+js/games/scrabble/    fourth game — live turn-based
+  engine.js           board/tiles/premiums, seeded bag, move validation,
+                      scoring, full state derived from both move lists (pure)
+  ui.js               board UI: tap-to-place, blanks, swap/pass/play, live turns
+  index.js            the game-plugin definition + final board and turn ledger
+```
+
+## Running the tests
+
+The pure game engines have node-runnable tests (no framework, no deps):
+
+```bash
+node tests/scrabble-engine.test.mjs
 ```
 
 ## Known limitations (accepted for v1)
+
+- Scrabble ties are flat ties: the official "higher score before rack
+  adjustments wins" tie-breaker isn't implemented (the platform compares one
+  number per player).
 
 - Refreshing **mid-round** restarts that round (finished rounds are already
   saved to the store, so they're never lost — even across devices).

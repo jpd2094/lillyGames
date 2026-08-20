@@ -461,8 +461,15 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 }
 .sc-cell.sc-tile.is-pending { outline: 2px solid var(--gold); z-index: 1; }
 .sc-cell.sc-tile.is-blank { color: #7a5b1e; }
-.sc-rack { display: flex; justify-content: center; gap: 6px; margin-top: 12px; min-height: 58px; }
-.sc-rtile { width: 44px; height: 56px; font-size: 1.2rem; position: relative; }
+.sc-rack { display: flex; justify-content: center; gap: 5px; margin-top: 12px; min-height: 58px; }
+/* fluid tiles: 7 must fit a 320pt phone (app padding included) */
+.sc-rtile {
+  width: clamp(31px, 10.5vw, 44px);
+  height: auto;
+  aspect-ratio: 44 / 56;
+  font-size: clamp(0.9rem, 4vw, 1.2rem);
+  position: relative;
+}
 .sc-rtile i { font-style: normal; position: absolute; right: 3px; bottom: 2px; font-size: 0.6rem; }
 .sc-rtile.is-swap { outline: 3px solid var(--coral); }
 .sc-actions { display: flex; gap: 6px; margin-top: 12px; }
@@ -477,6 +484,7 @@ input[type="text"]:focus { outline: 2px solid var(--gold); outline-offset: 0; }
 .sc-picker p { color: var(--muted); font-size: 0.85rem; margin-bottom: 8px; text-align: center; }
 .sc-picker-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
 .sc-pick { aspect-ratio: 1; font-size: 0.95rem; border-radius: 6px; }
+.sc-pick-cancel { width: 100%; margin-top: 8px; padding: 8px; font-size: 0.85rem; }
 .sc-board-mini { max-width: 340px; margin: 0 auto 14px; }
 .sc-board-mini .sc-cell { border-radius: 1px; font-size: 0; }
 .sc-board-mini .sc-cell.sc-tile { font-size: 0.6rem; }

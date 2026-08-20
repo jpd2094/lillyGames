@@ -5,8 +5,9 @@
 import wordgrid from "./wordgrid/index.js";
 import anagrams from "./anagrams/index.js";
 import blackjack from "./blackjack/index.js";
+import scrabble from "./scrabble/index.js";
 
-export const GAMES = [wordgrid, anagrams, blackjack];
+export const GAMES = [wordgrid, anagrams, blackjack, scrabble];
 
 export function getGame(id) {
   return GAMES.find((g) => g.id === id) || null;

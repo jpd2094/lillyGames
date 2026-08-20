@@ -523,8 +523,10 @@ function playFlow(match, game, me, rival) {
         if (!dead) store.submitProgress(match.id, me, progress).catch(() => {});
       },
       onRivalUpdate: (cb) => {
+        // cb(rivalEntry, match) — the full match rides along so a game can
+        // also notice its own entry changing (same player, another device).
         const unsub = store.subscribeMatch(match.id, (m) => {
-          if (!dead && m) cb(m.results?.[rival] ?? null);
+          if (!dead && m) cb(m.results?.[rival] ?? null, m);
         });
         liveUnsubs.push(unsub);
         return unsub;
