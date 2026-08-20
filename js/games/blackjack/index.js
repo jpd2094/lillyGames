@@ -14,6 +14,12 @@ export default {
   tagline: "Same cards, same bankroll. Only the decisions differ.",
   rounds: 1, // deckForHand keys on seed+hand only — fold `round` in if this ever grows
   roundSeconds: 0, // untimed — the duel ends when the hands run out
+  // two fanned cards, hearts up
+  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+    <rect x="2.6" y="4.4" width="10" height="14" rx="2" transform="rotate(-10 7.6 11.4)"/>
+    <rect x="11" y="5.5" width="10" height="14" rx="2" transform="rotate(9 16 12.5)"/>
+    <path d="M16.6 10.9c-.9-1.6-3.3-.8-2.7 1.1.4 1.2 2.5 2.7 2.5 2.7s2.4-1.2 2.9-2.4c.7-1.8-1.6-2.9-2.7-1.4z" fill="currentColor" stroke="none"/>
+  </svg>`,
   pitch: `1 duel · ${HANDS_PER_DUEL} hands`,
   rules: [
     `${HANDS_PER_DUEL} hands against the dealer, ${BANKROLL} chips to start, 10 a hand.`,

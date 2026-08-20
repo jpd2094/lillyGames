@@ -19,6 +19,14 @@ export default {
   tagline: "Eight letters, every word you can make.",
   rounds: 3,
   roundSeconds: 60,
+  // three letter tiles mid-shuffle
+  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+    <rect x="1.5" y="8" width="7.5" height="7.5" rx="1.8" transform="rotate(-10 5.25 11.75)"/>
+    <rect x="8.3" y="8" width="7.5" height="7.5" rx="1.8" transform="rotate(4 12 11.75)"/>
+    <rect x="15" y="8" width="7.5" height="7.5" rx="1.8" transform="rotate(12 18.75 11.75)"/>
+    <path d="M7 4.5 q5 -3 10 0" stroke-dasharray="2 2" opacity="0.8"/>
+    <path d="M15.6 3.2 l1.4 1.3 -1.8 0.9" opacity="0.8"/>
+  </svg>`,
 
   async prepare() {
     return { dictionary: await loadDictionary() };

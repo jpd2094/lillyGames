@@ -16,6 +16,14 @@ export default {
   rounds: 1,
   roundSeconds: 0, // untimed — the clock counts up, lowest time wins
   pitch: "1 puzzle · fastest wins",
+  // a 3x3 grid with a diagonal of solved cells
+  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
+    <rect x="2.5" y="2.5" width="19" height="19" rx="2.6"/>
+    <path d="M8.8 2.5 v19 M15.2 2.5 v19 M2.5 8.8 h19 M2.5 15.2 h19" stroke-width="1.1" opacity="0.65"/>
+    <circle cx="5.6" cy="5.6" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/>
+    <circle cx="18.4" cy="18.4" r="1.4" fill="currentColor" stroke="none"/>
+  </svg>`,
   lowerWins: true,
   variants: VARIANTS.map(({ id, name }) => ({ id, name })),
   rules: [

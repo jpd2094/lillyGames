@@ -158,6 +158,8 @@ default-exports:
 {
   id, name, tagline,        // shown on the "New match" screen
   rounds, roundSeconds,     // match shape
+  icon,                     // optional: inline SVG (currentColor) shown on the
+                            //   game grid, home cards and rivalry breakdown
   pitch,                    // optional: picker line, e.g. "1 duel · 10 hands"
                             //   (default: "N rounds · Ns each")
   rules,                    // optional: ready-screen bullet strings

@@ -18,6 +18,15 @@ export default {
   tagline: "Trace words in the tiles. Longer is better.",
   rounds: 3,
   roundSeconds: 60,
+  // four tiles with a traced path through them
+  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <rect x="2.5" y="2.5" width="8" height="8" rx="2"/>
+    <rect x="13.5" y="2.5" width="8" height="8" rx="2"/>
+    <rect x="2.5" y="13.5" width="8" height="8" rx="2"/>
+    <rect x="13.5" y="13.5" width="8" height="8" rx="2"/>
+    <path d="M6.5 6.5 L17.5 6.5 L17.5 17.5" stroke-width="2.4" opacity="0.75"/>
+    <circle cx="6.5" cy="6.5" r="1.4" fill="currentColor" stroke="none"/>
+  </svg>`,
 
   async prepare() {
     return { dictionary: await loadDictionary() };

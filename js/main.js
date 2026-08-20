@@ -375,7 +375,7 @@ function renderHome(me, matches) {
     const live = !isComplete(m) && isLiveNow(m, rival);
     return `
       <a class="match-card${live ? " is-live" : ""}" href="#/match/${m.id}">
-        <span class="match-game">${esc(game ? game.name : m.gameId)}</span>
+        <span class="match-game">${game?.icon ? `<span class="match-icon">${game.icon}</span>` : ""}${esc(game ? game.name : m.gameId)}</span>
         <span class="match-vs">vs ${esc(rival)}</span>
         <span class="match-date">${fmtDate(m.createdAt)}</span>
         ${badge(m, rival)}
@@ -451,7 +451,7 @@ async function viewRivalry(rival) {
     const pct = total ? ((r.wins + r.ties / 2) / total) * 100 : 50;
     return `
       <div class="rivalry">
-        <div class="rivalry-names"><b class="rivalry-game">${esc(game ? game.name : gameId)}</b>
+        <div class="rivalry-names"><b class="rivalry-game">${game?.icon ? `<span class="match-icon">${game.icon}</span>` : ""}${esc(game ? game.name : gameId)}</b>
           <span>${total} match${total === 1 ? "" : "es"}</span></div>
         <div class="tug" role="img" aria-label="${r.wins} wins, ${r.losses} losses, ${r.ties} ties">
           <div class="tug-me" style="width:${pct}%"></div>
@@ -487,8 +487,14 @@ function viewNew() {
           ${GAMES.map((g, i) => `
             <label class="game-option">
               <input type="radio" name="game" value="${g.id}" ${i === 0 ? "checked" : ""}>
-              <span class="game-option-card"><b>${esc(g.name)}</b><small>${esc(g.tagline)}</small>
-              <em>${esc(g.pitch || `${g.rounds} rounds · ${g.roundSeconds}s each`)}</em></span>
+              <span class="game-option-card">
+                <span class="game-icon">${g.icon || ""}</span>
+                <b>${esc(g.name)}</b>
+                <span class="game-details">
+                  <small>${esc(g.tagline)}</small>
+                  <em>${esc(g.pitch || `${g.rounds} rounds · ${g.roundSeconds}s each`)}</em>
+                </span>
+              </span>
             </label>`).join("")}
         </div>
         <div data-variants></div>

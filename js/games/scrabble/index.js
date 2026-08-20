@@ -17,6 +17,13 @@ export default {
   rounds: 1,
   roundSeconds: 0, // untimed — the game ends by the scrabble rules
   pitch: "1 board · live turns",
+  // two words crossing on a premium square
+  icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true">
+    <rect x="2.5" y="9" width="19" height="6" rx="1.6"/>
+    <rect x="9" y="2.5" width="6" height="19" rx="1.6"/>
+    <rect x="9" y="9" width="6" height="6" fill="currentColor" opacity="0.4" stroke="none"/>
+    <path d="M5.5 12 h1 M17.5 12 h1 M12 5.5 v1 M12 17.5 v1" stroke-linecap="round"/>
+  </svg>`,
   rules: [
     "Real Scrabble: 15×15 board, 100 tiles, official letter values and premium squares.",
     "The match creator goes first; turns alternate live — leave and come back whenever.",
